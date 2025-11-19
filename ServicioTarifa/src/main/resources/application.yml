@@ -1,0 +1,69 @@
+# --- Configuración del Servidor ---
+server:
+  port: 8083
+
+# --- Identidad del Servicio (Spring + Eureka) ---
+spring:
+  application:
+    name: servicio-tarifa
+
+  # --- Configuración de Base de Datos (PostgreSQL) ---
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tarifa_db
+    username: postgres
+    password: 0852
+    driver-class-name: org.postgresql.Driver
+
+  # --- Configuración de JPA (Hibernate) ---
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          lob:
+            non_contextual_creation: true
+
+  # --- Configuración de inicialización de datos ---
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-tarifa.sql
+      data-locations: classpath:data-tarifa.sql
+
+  # --- Configuración de Seguridad (Keycloak) ---
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: "http://localhost:8080/realms/tu-realm/protocol/openid-connect/certs"
+
+# --- Configuración de Service Discovery (Eureka) ---
+eureka:
+  client:
+    service-url:
+      defaultZone:
+  instance:
+    prefer-ip-address: true
+
+# --- Configuración de Logs ---
+logging:
+  level:
+    org.example.serviciotarifa: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# --- Configuración de Swagger (SpringDoc) ---
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  info:
+    title: API de Servicio de Tarifas
+    version: "1.0.0"
+    description: "Microservicio para el cálculo y gestión de tarifas de transporte"

@@ -1,0 +1,66 @@
+# --- Configuración del Servidor ---
+server:
+  port: 8081
+
+# --- Identidad del Servicio (Spring + Eureka) ---
+spring:
+  application:
+    name: servicio-cliente
+
+  # --- Configuración de Base de Datos (PostgreSQL) ---
+  datasource:
+    url: jdbc:postgresql://localhost:5432/db_clientes
+    username: postgres
+    password: 0852
+    driver-class-name: org.postgresql.Driver
+
+  # --- Configuración de JPA (Hibernate) ---
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-cliente.sql
+      data-locations: classpath:data-clientes.sql
+
+  # --- Configuración de Seguridad (Keycloak) ---
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: "http://localhost:8088/realms/transporte-realm/protocol/openid-connect/certs"
+
+# --- Configuración de Service Discovery (Eureka) ---
+eureka:
+  client:
+    service-url:
+      defaultZone:
+  instance:
+    prefer-ip-address: true
+
+# --- Configuración de Logs ---
+logging:
+  level:
+    org.example.serviciocliente: DEBUG
+    org.example.serviciocliente.feign.EnvioFeignCliente: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+
+# --- Configuración de Swagger (SpringDoc) ---
+# Alimenta a OpenAPIConfig.java
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  # Info general de la API
+  info:
+    title: API de Servicio de Clientes
+    version: "1.0.0"
+    description: "Microservicio para la gestión y seguimiento de clientes."

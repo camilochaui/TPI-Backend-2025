@@ -1,0 +1,208 @@
+version: '3.8'
+
+networks:
+  app-transporte:
+    driver: bridge
+
+volumes:
+  db_clientes_data:
+  db_envios_data:
+  flota_db_data:
+  tarifa_db_data:
+  osrm_data:
+  keycloak_data:
+
+services:
+  # --- 1. Infraestructura Base ---
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: keycloak
+    command: start-dev
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HTTP_PORT=8080
+    ports:
+      - "8088:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    networks:
+      - app-transporte
+
+  osrm-prepare:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    container_name: osrm-prepare
+    volumes:
+      - ./osrm/data:/data         # Monta la carpeta local con el .pbf
+      - osrm_data:/osrm-data      # Monta el volumen persistente para los archivos .osrm
+    command: >
+      /bin/sh -c "
+        if [ ! -f /osrm-data/argentina-251110.osrm ]; then
+          echo '--- OSRM data not found, generating... ---';
+          # 1. Extrae usando el .pbf de /data
+          osrm-extract -p /opt/car.lua /data/argentina-251110.osm.pbf &&
+          # 2. Particiona y contrae los archivos generados (que están en /data por defecto)
+          osrm-partition /data/argentina-251110.osrm &&
+          osrm-contract /data/argentina-251110.osrm;
+          # 3. Mueve TODOS los archivos generados al volumen persistente /osrm-data
+          mv /data/argentina-251110.* /osrm-data/;
+          echo '--- OSRM data generated successfully. ---';
+        else
+          echo '--- OSRM data already exists, skipping generation. ---';
+        fi
+      "
+    networks:
+      - app-transporte
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    container_name: osrm
+    ports:
+      - "5000:5000"
+    volumes:
+      - osrm_data:/data
+    command: >
+      osrm-routed --algorithm ch /data/argentina-251110.osrm
+    restart: unless-stopped
+    depends_on:
+      osrm-prepare: # <-- AÑADIR ESTA DEPENDENCIA
+        condition: service_completed_successfully
+    networks:
+      - app-transporte
+
+  eureka-server:
+    build: ./Eureka
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - app-transporte
+
+  # --- 2. Bases de Datos por Servicio ---
+  db-clientes:
+    image: postgres:15
+    container_name: db-clientes
+    ports:
+      - "5436:5432"
+    environment:
+      - POSTGRES_DB=db_clientes
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=0852
+    volumes:
+      - db_clientes_data:/var/lib/postgresql/data
+    networks:
+      - app-transporte
+
+  db-envios:
+    image: postgres:15
+    container_name: db-envios
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=db_envios
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=0852
+    volumes:
+      - db_envios_data:/var/lib/postgresql/data
+    networks:
+      - app-transporte
+
+  db-flota:
+    image: postgres:15
+    container_name: db-flota
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=flota_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=0852
+    volumes:
+      - flota_db_data:/var/lib/postgresql/data
+    networks:
+      - app-transporte
+
+  db-tarifa:
+    image: postgres:15
+    container_name: db-tarifa
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=tarifa_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=0852
+    volumes:
+      - tarifa_db_data:/var/lib/postgresql/data
+    networks:
+      - app-transporte
+
+  # --- 3. Microservicios de la Aplicación ---
+  servicio-cliente:
+    build: ./ServicioCliente
+    container_name: servicio-cliente
+    depends_on:
+      - eureka-server
+      - db-clientes
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-clientes:5432/db_clientes
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
+    networks:
+      - app-transporte
+
+  servicio-envios:
+    build: ./ServicioEnvios
+    container_name: servicio-envios
+    depends_on:
+      - eureka-server
+      - db-envios
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-envios:5432/db_envios
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/tu-realm/protocol/openid-connect/certs
+      - OSRM_BASE-URL=http://osrm:5000
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_MAPS_API_KEY}
+    networks:
+      - app-transporte
+
+  servicio-flota:
+    build: ./ServicioFlota
+    container_name: servicio-flota
+    depends_on:
+      - eureka-server
+      - db-flota
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-flota:5432/flota_db
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    networks:
+      - app-transporte
+
+  servicio-tarifa:
+    build: ./ServicioTarifa
+    container_name: servicio-tarifa
+    depends_on:
+      - eureka-server
+      - db-tarifa
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-tarifa:5432/tarifa_db
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/tu-realm/protocol/openid-connect/certs
+    networks:
+      - app-transporte
+
+  api-gateway:
+    build: ./ApiGateway
+    container_name: api-gateway
+    ports:
+      - "9000:9000"
+    depends_on:
+      - eureka-server
+      - servicio-cliente
+      - servicio-envios
+      - servicio-flota
+      - servicio-tarifa
+    environment:
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
+    networks:
+      - app-transporte

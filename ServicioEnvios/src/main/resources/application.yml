@@ -1,0 +1,92 @@
+# --- Identidad del Servicio (Spring + Eureka) ---
+server:
+  port: 8082
+
+spring:
+  application:
+    name: servicio-envios
+
+  cloud:
+    config:
+      enabled: false
+
+  # --- Configuración de Base de Datos (PostgreSQL) ---
+  datasource:
+    url: jdbc:postgresql://localhost:5432/db_envios
+    username: postgres
+    password: 0852
+    driver-class-name: org.postgresql.Driver
+
+  # --- Configuración de JPA (Hibernate) ---
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # --- Configuración de inicialización de datos ---
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema_envios.sql
+      data-locations: classpath:data_envios.sql
+
+  # --- Configuración de Seguridad (Keycloak) ---
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: "http://keycloak-url:8088/realms/tu-realm/protocol/openid-connect/certs"
+
+# --- Configuración de API Externa (Google Maps) ---
+google:
+  api:
+    base-url: "https://maps.googleapis.com"
+    key: "TU_API_KEY_DE_GOOGLE_MAPS"
+
+
+# --- Configuración de Servicios Externos ---
+servicio:
+  tarifas:
+    url: http://localhost:8083
+
+# Configuración de desvío máximo para depósitos intermedios
+app:
+  desvio-maximo-km: 100.0
+
+# Configuración OSRM
+osrm:
+  base-url: http://localhost:5000
+  route-path: /route/v1/driving
+
+# --- Configuración de Service Discovery (Eureka) ---
+eureka:
+  client:
+    # URL del servidor Eureka
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+      enabled: true
+  instance:
+    prefer-ip-address: true
+
+# --- Configuración de Logs ---
+logging:
+  level:
+    org.example.servicioenvios: DEBUG
+    org.example.servicioenvios.feign: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+
+# --- Configuración de Swagger (SpringDoc) ---
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  info:
+    title: API de Servicio de Envíos (Orquestador)
+    version: "1.0.0"
+    description: "Microservicio central para la gestión y orquestación de envíos."

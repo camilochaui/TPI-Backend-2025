@@ -1,0 +1,30 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: servicio-flota
+  cloud:
+    config:
+      enabled: false
+  datasource:
+    url: jdbc:postgresql://localhost:5432/flota_db
+    driverClassName: org.postgresql.Driver
+    username: postgres
+    password: 0852
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+
+eureka:
+  client:
+    service-url:
+      defaultZone:
+  instance:
+    prefer-ip-address: true
