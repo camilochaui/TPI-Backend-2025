@@ -9,9 +9,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 // Cliente Feign para comunicarse con ServicioEnvios.
 
 @FeignClient(
-        name = "servicio-envios",
-        path = "/api/v1/envios",
-        configuration = FeignClientConfig.class
+    name = "servicio-envios",
+    url = "${servicio.envios.url}",
+    path = "/api/v1/envios",
+    configuration = FeignClientConfig.class
 )
 public interface EnvioFeignCliente {
 

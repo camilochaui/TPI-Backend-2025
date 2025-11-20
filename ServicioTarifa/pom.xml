@@ -73,11 +73,7 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
-        <!-- Eureka Discovery Client -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
+        <!-- Eureka client removed - static routing via Docker DNS -->
 
         <!-- Swagger / OpenAPI -->
         <dependency>

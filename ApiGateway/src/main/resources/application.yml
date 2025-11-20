@@ -19,7 +19,7 @@ spring:
       routes:
         # ---- Ruta para ServicioCliente ----
         - id: servicio-cliente-route
-          uri: lb://servicio-cliente
+          uri: http://servicio-cliente:8081
           predicates:
             - Path=/api/v1/clientes/**, /api/v1/seguimiento/**, /api/v1/clientes
           filters:
@@ -27,7 +27,7 @@ spring:
 
         # ---- Ruta para ServicioEnvios ----
         - id: servicio-envios-route
-          uri: lb://servicio-envios
+          uri: http://servicio-envios:8082
           predicates:
             - Path=/api/v1/envios/**, /api/v1/tramos/**, /api/v1/transportista/**, /api/v1/rutas/**, /api/v1/debug/**
           filters:
@@ -35,7 +35,7 @@ spring:
 
         # ---- Ruta para ServicioFlota ----
         - id: servicio-flota-route
-          uri: lb://servicio-flota
+          uri: http://servicio-flota:8085
           predicates:
             - Path=/api/v1/flota/**
           filters:
@@ -43,7 +43,7 @@ spring:
 
         # ---- Ruta para ServicioTarifa ----
         - id: servicio-tarifa-route
-          uri: lb://servicio-tarifa
+          uri: http://servicio-tarifa:8083
           predicates:
             - Path=/api/v1/tarifas/**
           filters:
@@ -51,29 +51,29 @@ spring:
 
         # ---- Rutas para Swagger UI ----
         - id: swagger-envios
-          uri: lb://servicio-envios
+          uri: http://servicio-envios:8082
           predicates:
             - Path=/servicio-envios/v3/api-docs, /servicio-envios/swagger-ui/**
 
         - id: swagger-clientes
-          uri: lb://servicio-cliente
+          uri: http://servicio-cliente:8081
           predicates:
             - Path=/servicio-cliente/v3/api-docs, /servicio-cliente/swagger-ui/**
 
         - id: swagger-flota
-          uri: lb://servicio-flota
+          uri: http://servicio-flota:8085
           predicates:
             - Path=/servicio-flota/v3/api-docs, /servicio-flota/swagger-ui/**
 
         - id: swagger-tarifa
-          uri: lb://servicio-tarifa
+          uri: http://servicio-tarifa:8083
           predicates:
             - Path=/servicio-tarifa/v3/api-docs, /servicio-tarifa/swagger-ui/**
 
-# 4. Configuración del Cliente Eureka
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
+# 4. Configuración del Cliente JWT (Keycloak)
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: "http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs"

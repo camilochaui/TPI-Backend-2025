@@ -66,11 +66,7 @@
 
         <!-- === ECOSISTEMA DE MICROSERVICIOS (SPRING CLOUD) === -->
 
-        <!-- Cliente Eureka (Para registrarse) -->
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
-        </dependency>
+        <!-- Eureka client removed - static routing via Docker DNS -->
 
         <!-- Cliente Config (Para configuraciones centralizadas) -->
         <dependency>

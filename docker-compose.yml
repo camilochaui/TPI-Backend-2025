@@ -5,12 +5,9 @@ networks:
     driver: bridge
 
 volumes:
-  db_clientes_data:
-  db_envios_data:
-  flota_db_data:
-  tarifa_db_data:
   osrm_data:
   keycloak_data:
+  db_data:
 
 services:
   # --- 1. Infraestructura Base ---
@@ -70,68 +67,20 @@ services:
     networks:
       - app-transporte
 
-  eureka-server:
-    build: ./Eureka
-    container_name: eureka-server
-    ports:
-      - "8761:8761"
-    networks:
-      - app-transporte
+  # Eureka removed - services will be statically routed via ApiGateway
 
-  # --- 2. Bases de Datos por Servicio ---
-  db-clientes:
+  # --- 2. Base de Datos Unificada ---
+  postgres:
     image: postgres:15
-    container_name: db-clientes
+    container_name: postgres
     ports:
-      - "5436:5432"
+      - "5432:5432"
     environment:
-      - POSTGRES_DB=db_clientes
+      - POSTGRES_DB=tpi_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=0852
     volumes:
-      - db_clientes_data:/var/lib/postgresql/data
-    networks:
-      - app-transporte
-
-  db-envios:
-    image: postgres:15
-    container_name: db-envios
-    ports:
-      - "5433:5432"
-    environment:
-      - POSTGRES_DB=db_envios
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=0852
-    volumes:
-      - db_envios_data:/var/lib/postgresql/data
-    networks:
-      - app-transporte
-
-  db-flota:
-    image: postgres:15
-    container_name: db-flota
-    ports:
-      - "5434:5432"
-    environment:
-      - POSTGRES_DB=flota_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=0852
-    volumes:
-      - flota_db_data:/var/lib/postgresql/data
-    networks:
-      - app-transporte
-
-  db-tarifa:
-    image: postgres:15
-    container_name: db-tarifa
-    ports:
-      - "5435:5432"
-    environment:
-      - POSTGRES_DB=tarifa_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=0852
-    volumes:
-      - tarifa_db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
     networks:
       - app-transporte
 
@@ -140,11 +89,9 @@ services:
     build: ./ServicioCliente
     container_name: servicio-cliente
     depends_on:
-      - eureka-server
-      - db-clientes
+      - postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-clientes:5432/db_clientes
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
     networks:
       - app-transporte
@@ -153,11 +100,9 @@ services:
     build: ./ServicioEnvios
     container_name: servicio-envios
     depends_on:
-      - eureka-server
-      - db-envios
+      - postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-envios:5432/db_envios
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/tu-realm/protocol/openid-connect/certs
       - OSRM_BASE-URL=http://osrm:5000
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
@@ -169,11 +114,9 @@ services:
     build: ./ServicioFlota
     container_name: servicio-flota
     depends_on:
-      - eureka-server
-      - db-flota
+      - postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-flota:5432/flota_db
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
     networks:
       - app-transporte
 
@@ -181,11 +124,9 @@ services:
     build: ./ServicioTarifa
     container_name: servicio-tarifa
     depends_on:
-      - eureka-server
-      - db-tarifa
+      - postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db-tarifa:5432/tarifa_db
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/tu-realm/protocol/openid-connect/certs
     networks:
       - app-transporte
@@ -196,13 +137,11 @@ services:
     ports:
       - "9000:9000"
     depends_on:
-      - eureka-server
       - servicio-cliente
       - servicio-envios
       - servicio-flota
       - servicio-tarifa
     environment:
-      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
     networks:
       - app-transporte

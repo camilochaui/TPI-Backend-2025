@@ -4,7 +4,8 @@ Proyecto TPI Backend 2025 - Sistema de logística de transporte de contenedores.
 
 Resumen rápido
 - Microservicios Java Spring Boot: `ApiGateway`, `Eureka`, `ServicioCliente`, `ServicioEnvios`, `ServicioFlota`, `ServicioTarifa`.
-- Orquestación: `docker-compose.yml` con Postgres por servicio, Keycloak y (opcional) OSRM.
+ - Microservicios Java Spring Boot: `ApiGateway`, `ServicioCliente`, `ServicioEnvios`, `ServicioFlota`, `ServicioTarifa`.
+ - Orquestación: `docker-compose.yml` con una única base de datos Postgres, Keycloak y (opcional) OSRM.
 - Integración de rutas: Google Maps Directions (configurable via `GOOGLE_MAPS_API_KEY`) con fallback a OSRM o cálculo Haversine.
 
 Cómo probar localmente (resumen)
@@ -16,7 +17,7 @@ Push-Location .\ServicioFlota; .\mvnw.cmd -DskipTests package; Pop-Location
 Push-Location .\ServicioEnvios; .\mvnw.cmd -DskipTests package; Pop-Location
 Push-Location .\ServicioCliente; .\mvnw.cmd -DskipTests package; Pop-Location
 Push-Location .\ApiGateway; .\mvnw.cmd -DskipTests package; Pop-Location
-Push-Location .\Eureka; .\mvnw.cmd -DskipTests package; Pop-Location
+# Si existe, ya no es necesario compilar Eureka
 ```
 
 2. (Opcional) Exportar tu API Key de Google Maps en PowerShell (si la tenés):
@@ -31,9 +32,9 @@ $env:GOOGLE_MAPS_API_KEY = 'TU_API_KEY_DE_GOOGLE_MAPS'
 docker compose up --build -d
 ```
 
-Endpoints importantes
-- Eureka UI: `http://localhost:8761`
 - Keycloak admin: `http://localhost:8088`
+- API Gateway: `http://localhost:9000`
+- Servicio Envios: `http://localhost:8082`
 - API Gateway: `http://localhost:9000`
 - Servicio Envios: `http://localhost:8082`
 

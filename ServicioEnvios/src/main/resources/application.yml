@@ -12,7 +12,7 @@ spring:
 
   # --- Configuración de Base de Datos (PostgreSQL) ---
   datasource:
-    url: jdbc:postgresql://localhost:5432/db_envios
+    url: jdbc:postgresql://postgres:5432/tpi_db
     username: postgres
     password: 0852
     driver-class-name: org.postgresql.Driver
@@ -62,13 +62,10 @@ osrm:
   base-url: http://localhost:5000
   route-path: /route/v1/driving
 
-# --- Configuración de Service Discovery (Eureka) ---
+  # --- Configuración de Service Discovery (Eureka) ---
 eureka:
   client:
-    # URL del servidor Eureka
-    service-url:
-      defaultZone: http://localhost:8761/eureka
-      enabled: true
+    enabled: false
   instance:
     prefer-ip-address: true
 
