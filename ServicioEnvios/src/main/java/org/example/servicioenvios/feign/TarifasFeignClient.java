@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "servicio-tarifa", path = "/api/v1/tarifas")
+@FeignClient(name = "servicio-tarifa", url = "${servicio.tarifas.url}", path = "/api/v1/tarifas")
 public interface TarifasFeignClient {
 
     @PostMapping("/calculo")

@@ -22,8 +22,7 @@ spring:
       schema-locations: classpath:db/schema.sql
       data-locations: classpath:db/data.sql
 
-eureka:
-  client:
-    enabled: false
-  instance:
-    prefer-ip-address: true
+
+servicio:
+  tarifa:
+    url: http://servicio-tarifa:8083

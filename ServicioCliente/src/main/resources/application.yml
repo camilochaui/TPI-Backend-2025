@@ -2,7 +2,7 @@
 server:
   port: 8081
 
-# --- Identidad del Servicio (Spring + Eureka) ---
+# --- Identidad del Servicio (Spring) ---
 spring:
   application:
     name: servicio-cliente
@@ -36,8 +36,6 @@ spring:
         jwt:
           jwk-set-uri: "http://localhost:8088/realms/transporte-realm/protocol/openid-connect/certs"
 
-# --- Configuración de Service Discovery (Eureka) ---
-# Eureka está deshabilitado en este despliegue. Las entradas quedan aquí como referencia.
 
 # --- Configuración de Logs ---
 logging:

@@ -16,6 +16,7 @@ import java.util.Map;
 
 @FeignClient(
         name = "servicio-flota",
+        url = "${servicio.flota.url}",
         path = "/api/v1/flota"
         // configuration = FeignClientConfig.class
 )

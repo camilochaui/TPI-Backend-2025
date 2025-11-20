@@ -73,7 +73,6 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
-        <!-- Eureka client removed - static routing via Docker DNS -->
 
         <!-- Swagger / OpenAPI -->
         <dependency>

@@ -30,7 +30,7 @@ services:
     image: ghcr.io/project-osrm/osrm-backend:v6.0.0
     container_name: osrm-prepare
     volumes:
-      - ./osrm/data:/data         # Monta la carpeta local con el .pbf
+      - ${OSRM_PBF_DIR}:/data     # Monta la carpeta local con el .pbf (definida en .env)
       - osrm_data:/osrm-data      # Monta el volumen persistente para los archivos .osrm
     command: >
       /bin/sh -c "
@@ -67,7 +67,7 @@ services:
     networks:
       - app-transporte
 
-  # Eureka removed - services will be statically routed via ApiGateway
+
 
   # --- 2. Base de Datos Unificada ---
   postgres:
@@ -81,6 +81,7 @@ services:
       - POSTGRES_PASSWORD=0852
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
     networks:
       - app-transporte
 
@@ -104,9 +105,7 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/tu-realm/protocol/openid-connect/certs
-      - OSRM_BASE-URL=http://osrm:5000
-      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - OSRM_BASE_URL=http://osrm:5000
     networks:
       - app-transporte
 

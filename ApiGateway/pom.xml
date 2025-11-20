@@ -40,7 +40,6 @@
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
-        <!-- Eureka client removed - static routing via docker-compose -->
 
         <!-- 3. Seguridad (para validar el JWT de Keycloak) -->
         <dependency>

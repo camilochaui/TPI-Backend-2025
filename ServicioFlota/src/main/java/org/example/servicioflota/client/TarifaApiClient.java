@@ -4,7 +4,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "servicio-tarifa")
+@FeignClient(name = "servicio-tarifa", url = "${servicio.tarifa.url}")
 public interface TarifaApiClient {
 
     @GetMapping("/api/tarifas/combustible/{tipo}")

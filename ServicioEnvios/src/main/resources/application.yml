@@ -1,4 +1,4 @@
-# --- Identidad del Servicio (Spring + Eureka) ---
+# --- Identidad del Servicio (Spring) ---
 server:
   port: 8082
 
@@ -51,7 +51,11 @@ google:
 # --- Configuración de Servicios Externos ---
 servicio:
   tarifas:
-    url: http://localhost:8083
+    url: http://servicio-tarifa:8083
+  cliente:
+    url: http://servicio-cliente:8081
+  flota:
+    url: http://servicio-flota:8085
 
 # Configuración de desvío máximo para depósitos intermedios
 app:
@@ -62,12 +66,6 @@ osrm:
   base-url: http://localhost:5000
   route-path: /route/v1/driving
 
-  # --- Configuración de Service Discovery (Eureka) ---
-eureka:
-  client:
-    enabled: false
-  instance:
-    prefer-ip-address: true
 
 # --- Configuración de Logs ---
 logging:

@@ -2,7 +2,7 @@
 server:
   port: 8083
 
-# --- Identidad del Servicio (Spring + Eureka) ---
+# --- Identidad del Servicio (Spring ) ---
 spring:
   application:
     name: servicio-tarifa
@@ -41,12 +41,6 @@ spring:
         jwt:
           jwk-set-uri: "http://localhost:8080/realms/tu-realm/protocol/openid-connect/certs"
 
-# --- Configuración de Service Discovery (Eureka) ---
-eureka:
-  client:
-    enabled: false
-  instance:
-    prefer-ip-address: true
 
 # --- Configuración de Logs ---
 logging:

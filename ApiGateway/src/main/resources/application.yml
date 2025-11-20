@@ -11,7 +11,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: "http://localhost:8088/realms/transporte-realm/protocol/openid-connect/certs"
+          jwk-set-uri: "http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs"
 
   # 3. Configuración del Gateway
   cloud:
@@ -71,9 +71,4 @@ spring:
             - Path=/servicio-tarifa/v3/api-docs, /servicio-tarifa/swagger-ui/**
 
 # 4. Configuración del Cliente JWT (Keycloak)
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: "http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs"
+# (la configuración JWT ya está definida arriba en el bloque `spring`)

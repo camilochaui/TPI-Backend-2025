@@ -10,9 +10,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 // Cliente Feign para comunicarse con ServicioCliente
 @FeignClient(
-        name = "servicio-cliente",
-        path = "/api/v1/clientes"
-        //configuration = FeignClientConfig.class
+    name = "servicio-cliente",
+    url = "${servicio.cliente.url}",
+    path = "/api/v1/clientes"
+    //configuration = FeignClientConfig.class
 )
 public interface ClienteFeignClient {
 
