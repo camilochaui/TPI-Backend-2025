@@ -32,6 +32,7 @@ public class ClienteService {
 
     private final ClienteRepository clienteRepository;
     private final CiudadRepository ciudadRepository;
+    private KeycloakAdminService keycloakAdminService;
 
     @Autowired
     public ClienteService(
@@ -40,6 +41,13 @@ public class ClienteService {
     ) {
         this.clienteRepository = clienteRepository;
         this.ciudadRepository = ciudadRepository;
+        this.keycloakAdminService = null; // Will be injected by Spring if available via setter injection
+    }
+
+    @Autowired(required = false)
+    public void setKeycloakAdminService(KeycloakAdminService keycloakAdminService) {
+        // Optional injection: si KeycloakAdminService no está presente, este setter no será llamado
+        this.keycloakAdminService = keycloakAdminService;
     }
 
     // =====================================================
@@ -66,7 +74,16 @@ public class ClienteService {
                     return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ciudad no encontrada");
                 });
 
-        // 3. Mapear y Guardar
+        // 3. Crear usuario en Keycloak (si está disponible) y luego mapear y guardar
+        try {
+            if (keycloakAdminService != null) {
+                keycloakAdminService.ensureUserExists(dto);
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo crear usuario en Keycloak: {}. Continuando con registro local.", e.getMessage());
+        }
+
+        // 4. Mapear y Guardar en la BD local
         ClienteEntity cliente = mapToEntity(dto, ciudad);
         clienteRepository.save(cliente);
 

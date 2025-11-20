@@ -41,13 +41,6 @@ spring:
         jwt:
           jwk-set-uri: "http://keycloak-url:8088/realms/tu-realm/protocol/openid-connect/certs"
 
-# --- Configuración de API Externa (Google Maps) ---
-google:
-  api:
-    base-url: "https://maps.googleapis.com"
-    key: "TU_API_KEY_DE_GOOGLE_MAPS"
-
-
 # --- Configuración de Servicios Externos ---
 servicio:
   tarifas:

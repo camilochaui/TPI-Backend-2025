@@ -61,3 +61,13 @@ springdoc:
 servicio:
   envios:
     url: http://servicio-envios:8082
+
+
+# Configuración de administración de Keycloak (para crear usuarios al registrar clientes)
+keycloak:
+  admin:
+    url: http://keycloak:8080
+    username: admin
+    password: admin
+    client-id: admin-cli
+    realm: transporte-realm
