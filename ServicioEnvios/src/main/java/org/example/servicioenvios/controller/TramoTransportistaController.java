@@ -23,64 +23,54 @@ import java.util.List;
 @RequestMapping("/api/v1/transportista/tramos")
 @Tag(name = "Gestión de Tramos (Transportista)", description = "Endpoints para que el Transportista gestione sus viajes")
 @SecurityRequirement(name = "bearerAuth")
-// ¡ADVERTENCIA! Esto solo valida el rol, no que el ID del token coincida con el parámetro.
+// ¡ADVERTENCIA! Esto solo valida el rol, no que el ID del token coincida con el
+// parámetro.
 // Esto permite que un transportista suplante a otro.
 @PreAuthorize("hasRole('TRANSPORTISTA')")
-public class
-TramoTransportistaController {
+public class TramoTransportistaController {
 
-    private final TramoService tramoService;
+        private final TramoService tramoService;
 
-    @Autowired
-    public TramoTransportistaController(TramoService tramoService) {
-        this.tramoService = tramoService;
-    }
+        @Autowired
+        public TramoTransportistaController(TramoService tramoService) {
+                this.tramoService = tramoService;
+        }
 
-    @Operation(summary = "Obtener tramos de un transportista (¡INSEGURO!)",
-            description = "Devuelve tramos para un ID de transportista específico pasado por parámetro. " +
-                    "ADVERTENCIA: Un transportista autenticado puede ver tramos de OTRO transportista.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Lista de tramos obtenida"),
-            @ApiResponse(responseCode = "403", description = "Token inválido o sin el rol requerido")
-    })
-    @GetMapping("") // Path cambiado de "/mis-tramos"
-    public ResponseEntity<List<TramoResponseDTO>> obtenerTramosPorTransportista(
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        // Extraer el ID del transportista desde el claim del JWT para evitar IDOR
-        Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
-        log.info("Transportista autenticado (claim) consultando sus tramos: {}", idTransportista);
+        @Operation(summary = "Obtener tramos de un transportista autenticado", description = "Devuelve los tramos asociados al transportista dueño del token JWT")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Lista de tramos obtenida"),
+                        @ApiResponse(responseCode = "403", description = "Token inválido o sin el rol requerido")
+        })
+        @GetMapping("") // Path cambiado de "/mis-tramos"
+        public ResponseEntity<List<TramoResponseDTO>> obtenerTramosPorTransportista(
+                        @AuthenticationPrincipal Jwt jwt) {
+                // Extraer el ID del transportista desde el claim del JWT para evitar IDOR
+                Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
+                log.info("Transportista autenticado (claim) consultando sus tramos: {}", idTransportista);
 
-        List<TramoResponseDTO> tramos = tramoService.obtenerTramosDelTransportista(idTransportista);
-        return ResponseEntity.ok(tramos);
-    }
+                List<TramoResponseDTO> tramos = tramoService.obtenerTramosDelTransportista(idTransportista);
+                return ResponseEntity.ok(tramos);
+        }
 
+        @Operation(summary = "Iniciar un tramo propio", description = "El transportista autenticado inicia un tramo asignado a uno de sus camiones.")
+        @PostMapping("/{idTramo}/inicio")
+        public ResponseEntity<TramoResponseDTO> iniciarTramo(
+                        @PathVariable Long idTramo,
+                        @AuthenticationPrincipal Jwt jwt) {
 
-    @Operation(summary = "Iniciar un tramo (¡INSEGURO!)",
-            description = "Inicia un tramo para un ID de transportista específico. " +
-                    "ADVERTENCIA: Un transportista autenticado puede iniciar tramos de OTRO transportista.")
-    @PostMapping("/{idTramo}/inicio")
-    public ResponseEntity<TramoResponseDTO> iniciarTramo(
-            @PathVariable Long idTramo,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
+                Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
+                log.info("Transportista {} iniciando tramo {}", idTransportista, idTramo);
 
-        Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
-        log.info("Transportista {} iniciando tramo {}", idTransportista, idTramo);
+                TramoResponseDTO tramoActualizado = tramoService.iniciarTramo(idTramo, idTransportista);
 
-        TramoResponseDTO tramoActualizado = tramoService.iniciarTramo(idTramo, idTransportista);
+                return ResponseEntity.ok(tramoActualizado);
+        }
 
-        return ResponseEntity.ok(tramoActualizado);
-    }
-
-    @Operation(summary = "Finalizar un tramo (¡INSEGURO!)",
-            description = "Finaliza un tramo para un ID de transportista específico. " +
-                    "ADVERTENCIA: Un transportista autenticado puede finalizar tramos de OTRO transportista.")
-    @PostMapping("/{idTramo}/fin")
+        @Operation(summary = "Finalizar un tramo propio", description = "El transportista autenticado finaliza un tramo asignado a uno de sus camiones.")
+        @PostMapping("/{idTramo}/fin")
         public ResponseEntity<TramoResponseDTO> finalizarTramo(
                         @PathVariable Long idTramo,
-                        @AuthenticationPrincipal Jwt jwt
-        ) {
+                        @AuthenticationPrincipal Jwt jwt) {
 
                 Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
                 log.info("Transportista {} finalizando tramo {}", idTransportista, idTramo);
@@ -92,7 +82,8 @@ TramoTransportistaController {
 
         // Helper para extraer un ID entero desde los claims del JWT
         private Integer extractIdFromJwt(Jwt jwt, String claimName) {
-                if (jwt == null) return null;
+                if (jwt == null)
+                        return null;
                 Object claim = jwt.getClaim(claimName);
                 if (claim instanceof Number) {
                         return ((Number) claim).intValue();

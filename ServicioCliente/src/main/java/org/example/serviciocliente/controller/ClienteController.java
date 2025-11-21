@@ -32,9 +32,9 @@ public class ClienteController {
         this.clienteService = clienteService;
     }
 
-    @Operation(summary = "Registrar un nuevo cliente",
-            description = "Crea un nuevo cliente. Usado por Admin o internamente por ServicioEnvios. " +
-                    "Requiere rol ADMIN.")
+    @Operation(summary = "Registrar un nuevo cliente", description = "Crea un nuevo cliente. Usado por Admin o internamente por ServicioEnvios. "
+            +
+            "Requiere rol ADMIN.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Cliente creado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
@@ -95,23 +95,21 @@ public class ClienteController {
         return ResponseEntity.noContent().build();
     }
 
-    // REQ 1: "registrar el cliente si no existe"
+    // "registrar el cliente si no existe"
     // Endpoint interno para ServicioEnvios
 
-    @Operation(summary = "Registrar u obtener cliente (Para ServicioEnvios)",
-            description = "Endpoint interno para ServicioEnvios. Registra cliente nuevo o retorna existente.")
+    @Operation(summary = "Registrar u obtener cliente (Para ServicioEnvios)", description = "Endpoint interno para ServicioEnvios. Registra cliente nuevo o retorna existente.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Cliente obtenido/registrado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos")
     })
 
     @PostMapping("/solicitud")
-    // @PreAuthorize("hasRole('SERVICE') or hasRole('ADMIN')")  // Token especial para servicios
+    @PreAuthorize("hasRole('SERVICIO_CLIENTES') or hasRole('ADMIN')")
     public ResponseEntity<ClienteResponseDTO> registrarOObtenerCliente(
             @Valid @RequestBody ClienteRequestDTO dto) {
         log.info("Solicitud de registro/obtención para cliente con DNI {}", dto.getDni());
         ClienteResponseDTO cliente = clienteService.registrarOObtenerCliente(dto);
         return ResponseEntity.ok(cliente);
     }
-
 }

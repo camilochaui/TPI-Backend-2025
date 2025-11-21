@@ -50,7 +50,7 @@ public class TarifaController {
         }
     }
 
-    // REQ 10) Registrar y actualizar depósitos y tarifas.
+    // Registrar y actualizar depósitos y tarifas.
     @PutMapping("/estadia/{idDeposito}")
     public ResponseEntity<Void> actualizarTarifaEstadia(
             @PathVariable Long idDeposito,
@@ -64,6 +64,7 @@ public class TarifaController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
     @PutMapping("/combustible/{tipo}")
     public ResponseEntity<Void> actualizarPrecioCombustible(
             @PathVariable String tipo,

@@ -90,7 +90,7 @@ public class CamionService {
     @Autowired
     private ContenedorRepository contenedorRepository; // Asegúrate de tenerlo
 
-// ...
+    // ...
 
     // ¡NUEVO MÉTODO DE SERVICIO!
     @Transactional
@@ -107,7 +107,8 @@ public class CamionService {
         contenedor.setCamion(camion);
         contenedorRepository.save(contenedor); // ¡Esto guarda la FK!
 
-        // 3. Ahora SÍ, validar la carga (porque el contenedor ya está en la lista camion.getContenedores())
+        // 3. Ahora SÍ, validar la carga (porque el contenedor ya está en la lista
+        // camion.getContenedores())
         // Esta validación ahora SÍ fallará si se excede el peso/volumen.
         validarCargaTotal(camion);
 
@@ -145,13 +146,13 @@ public class CamionService {
 
         if (dto.getTransportistaId() != null) {
             Transportista transportista = transportistaRepository.findById(dto.getTransportistaId())
-                    .orElseThrow(() -> new RuntimeException("Transportista no encontrado con ID: " + dto.getTransportistaId()));
+                    .orElseThrow(() -> new RuntimeException(
+                            "Transportista no encontrado con ID: " + dto.getTransportistaId()));
             entity.setTransportista(transportista);
         }
     }
 
-
-    // REQ 11) Validar que un camión no supere su capacidad máxima en peso ni volumen.
+    // Validar que un camión no supere su capacidad máxima en peso ni volumen.
 
     private void validarCargaTotal(Camion camion) {
         List<Contenedor> contenedoresAsignados = camion.getContenedores();
@@ -178,17 +179,17 @@ public class CamionService {
         // Validar el peso
         if (capacidadPesoMax != null && pesoTotalActual > capacidadPesoMax) {
             throw new IllegalArgumentException(
-                    String.format("Error de Capacidad: El peso total de la carga (%.2f) excede la capacidad máxima del camión (%.2f).",
-                            pesoTotalActual, capacidadPesoMax)
-            );
+                    String.format(
+                            "Error de Capacidad: El peso total de la carga (%.2f) excede la capacidad máxima del camión (%.2f).",
+                            pesoTotalActual, capacidadPesoMax));
         }
 
         // Validar el volumen
         if (capacidadVolumenMax != null && volumenTotalActual > capacidadVolumenMax) {
             throw new IllegalArgumentException(
-                    String.format("Error de Capacidad: El volumen total de la carga (%.2f) excede la capacidad máxima del camión (%.2f).",
-                            volumenTotalActual, capacidadVolumenMax)
-            );
+                    String.format(
+                            "Error de Capacidad: El volumen total de la carga (%.2f) excede la capacidad máxima del camión (%.2f).",
+                            volumenTotalActual, capacidadVolumenMax));
         }
     }
 }

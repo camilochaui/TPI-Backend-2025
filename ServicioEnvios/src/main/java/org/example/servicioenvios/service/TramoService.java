@@ -25,8 +25,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// Asociado al REQ #6, #7, #8, #9 y #11
-
 @Slf4j
 @Service
 public class TramoService {
@@ -40,11 +38,10 @@ public class TramoService {
 
     @Autowired
     public TramoService(TramoRepository tramoRepository,
-                        SolicitudRepository solicitudRepository,
-                        FlotaFeignClient flotaFeignClient,
-                        OsrmService osrmService,
-                        CalcularCostosService calcularCostosService
-    ) {
+            SolicitudRepository solicitudRepository,
+            FlotaFeignClient flotaFeignClient,
+            OsrmService osrmService,
+            CalcularCostosService calcularCostosService) {
         this.tramoRepository = tramoRepository;
         this.solicitudRepository = solicitudRepository;
         this.flotaFeignClient = flotaFeignClient;
@@ -52,16 +49,17 @@ public class TramoService {
         this.calcularCostosService = calcularCostosService;
     }
 
-    // REQ 6) Asignar camión a un tramo
+    // Asignar camión a un tramo
     @Transactional
     public TramoResponseDTO asignarCamionATramo(Long idTramo, AsignarCamionRequestDTO requestDTO) {
 
         String patente = requestDTO.getPatenteCamion();
-        log.info("REQ #6: Asignando camión {} al tramo {}", patente, idTramo);
+        log.info("Asignando camión {} al tramo {}", patente, idTramo);
 
         // 1. Buscar el tramo
         Tramo tramo = tramoRepository.findById(idTramo)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tramo no encontrado: " + idTramo));
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tramo no encontrado: " + idTramo));
 
         // 2. Obtener la solicitud
         Solicitud solicitud = tramo.getRuta().getSolicitud();
@@ -69,7 +67,8 @@ public class TramoService {
         // ¡NECESITAMOS ESTE DATO!
         String idContenedor = solicitud.getIdContenedorExt();
         if (idContenedor == null) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "La solicitud no tiene un ID de contenedor.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "La solicitud no tiene un ID de contenedor.");
         }
 
         // 3. Orquestación: Validar camión (Esto está bien)
@@ -80,7 +79,8 @@ public class TramoService {
             // ... (resto del try-catch de validación)
         } catch (Exception e) {
             log.error("Error al contactar ServicioFlota: {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ServicioFlota no disponible: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "ServicioFlota no disponible: " + e.getMessage());
         }
 
         // 4. Validación de Reglas de Negocio (Esto está bien)
@@ -91,13 +91,15 @@ public class TramoService {
             log.info("Vinculando contenedor {} a camión {} en ServicioFlota...", idContenedor, patente);
 
             // ¡¡¡CAMBIO CLAVE!!!
-            // Ya no llamamos a 'asignarCamion', llamamos al nuevo método 'vincularContenedorACamion'
+            // Ya no llamamos a 'asignarCamion', llamamos al nuevo método
+            // 'vincularContenedorACamion'
             flotaFeignClient.vincularContenedorACamion(patente, idContenedor);
 
         } catch (Exception e) {
             log.error("Error al VINCULAR camión en ServicioFlota (posible sobrecarga o 404): {}", e.getMessage());
             // Si esto falla (ej. por validación de carga), la transacción hace rollback
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "No se pudo asignar el camión (verificar capacidad o existencia): " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se pudo asignar el camión (verificar capacidad o existencia): " + e.getMessage());
         }
 
         // 6. Persistencia Local (Esto ahora SÍ es correcto)
@@ -109,21 +111,21 @@ public class TramoService {
         return mapToTramoResponse(tramoActualizado);
     }
 
-
-    // REQ 7) Obtener tramos de un transportista
+    // Obtener tramos de un transportista
     @Transactional(readOnly = true)
     public List<TramoResponseDTO> obtenerTramosDelTransportista(Integer transportistaId) { // <-- CAMBIADO
 
-        // 1. Obtener el ID del Transportista (ahora viene por parámetro)
-        log.warn("--- ADVERTENCIA DE SEGURIDAD (IDOR) ---");
-        log.info("REQ #7 (INSEGURO): Buscando tramos para transportista ID: {}", transportistaId);
+        // 1. Obtener el ID del Transportista
+        log.info("Buscando tramos para transportista ID: {}", transportistaId);
 
-        // 2. Orquestación: Llamar a ServicioFlota para obtener los camiones de este transportista
+        // 2. Orquestación: Llamar a ServicioFlota para obtener los camiones de este
+        // transportista
         TransportistaDTO transportista;
         try {
             transportista = flotaFeignClient.obtenerTransportistaPorId(transportistaId);
         } catch (Exception e) {
-            log.error("Error al contactar ServicioFlota para obtener transportista {}: {}", transportistaId, e.getMessage());
+            log.error("Error al contactar ServicioFlota para obtener transportista {}: {}", transportistaId,
+                    e.getMessage());
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ServicioFlota no disponible");
         }
 
@@ -142,19 +144,20 @@ public class TramoService {
                 .collect(Collectors.toList());
     }
 
-    // REQ 7: Iniciar un tramo
+    // Iniciar un tramo
     @Transactional
-    public TramoResponseDTO iniciarTramo(Long idTramo, Integer transportistaId) { // <-- CAMBIADO
-        log.warn("--- ADVERTENCIA DE SEGURIDAD (IDOR) ---");
-        log.info("REQ #7 (INSEGURO): Transportista {} iniciando tramo ID: {}", transportistaId, idTramo);
+    public TramoResponseDTO iniciarTramo(Long idTramo, Integer transportistaId) {
+        log.info("Transportista {} iniciando tramo ID: {}", transportistaId, idTramo);
 
         // 1. Validar Seguridad (Versión Insegura )
         Tramo tramo = validarTransportistaDueñoDelTramo(idTramo, transportistaId);
 
         // 2. Validación de Estado:
         if (tramo.getEstadoTramo() != EstadoTramo.ASIGNADO) {
-            log.warn("Conflicto: Tramo {} no está en estado ASIGNADO. Estado actual: {}", idTramo, tramo.getEstadoTramo());
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "El tramo no está en estado ASIGNADO (actual: " + tramo.getEstadoTramo() + ")");
+            log.warn("Conflicto: Tramo {} no está en estado ASIGNADO. Estado actual: {}", idTramo,
+                    tramo.getEstadoTramo());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "El tramo no está en estado ASIGNADO (actual: " + tramo.getEstadoTramo() + ")");
         }
 
         // 3. Orquestación: Marcar Transportista como OCUPADO
@@ -174,7 +177,8 @@ public class TramoService {
         // 5. Actualizar Estado de la Solicitud (si es el primer tramo)
         Solicitud solicitud = tramo.getRuta().getSolicitud();
         if (solicitud.getEstadoSolicitud() == EstadoSolicitud.PROGRAMADA) {
-            log.info("Primer tramo iniciado. Actualizando estado de Solicitud {} a EN_TRANSITO", solicitud.getNumSolicitud());
+            log.info("Primer tramo iniciado. Actualizando estado de Solicitud {} a EN_TRANSITO",
+                    solicitud.getNumSolicitud());
             solicitud.setEstadoSolicitud(EstadoSolicitud.EN_TRANSITO);
             solicitudRepository.save(solicitud);
         }
@@ -184,19 +188,20 @@ public class TramoService {
         return mapToTramoResponse(tramoActualizado);
     }
 
-    // REQ 7) Finalizar un tramo
+    // Finalizar un tramo
     @Transactional
-    public TramoResponseDTO finalizarTramo(Long idTramo, Integer transportistaId) { // <-- CAMBIADO
-        log.warn("--- ADVERTENCIA DE SEGURIDAD (IDOR) ---");
-        log.info("REQ #7 (INSEGURO): Transportista {} finalizando tramo ID: {}", transportistaId, idTramo);
+    public TramoResponseDTO finalizarTramo(Long idTramo, Integer transportistaId) {
+        log.info("Transportista {} finalizando tramo ID: {}", transportistaId, idTramo);
 
         // 1. Validar Seguridad (Versión Insegura)
         Tramo tramo = validarTransportistaDueñoDelTramo(idTramo, transportistaId);
 
         // 2. Validación de Estado:
         if (tramo.getEstadoTramo() != EstadoTramo.INICIADO) {
-            log.warn("Conflicto: Tramo {} no está en estado INICIADO. Estado actual: {}", idTramo, tramo.getEstadoTramo());
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "El tramo no está en estado INICIADO (actual: " + tramo.getEstadoTramo() + ")");
+            log.warn("Conflicto: Tramo {} no está en estado INICIADO. Estado actual: {}", idTramo,
+                    tramo.getEstadoTramo());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "El tramo no está en estado INICIADO (actual: " + tramo.getEstadoTramo() + ")");
         }
 
         // 3. Actualizar Estado del Tramo
@@ -206,7 +211,7 @@ public class TramoService {
         // 4. Calcular Distancia y Costo Real
         try {
             // A. Calcular Distancia Real
-            log.info("REQ #8: Calculando distancia REAL para tramo {}", idTramo);
+            log.info("Calculando distancia REAL para tramo {}", idTramo);
             Double distanciaReal = osrmService.calcularDistanciaEntreUbicaciones(
                     tramo.getOrigen(), tramo.getDestino());
 
@@ -215,7 +220,7 @@ public class TramoService {
             }
 
             // B. Calcular Costo Real
-            log.info("REQ #9: Calculando costo REAL para tramo {}", idTramo);
+            log.info("Calculando costo REAL para tramo {}", idTramo);
             Double costoRealTramo = calcularCostosService.calcularCostoRealTramo(tramo);
 
             if (costoRealTramo != null) {
@@ -254,17 +259,20 @@ public class TramoService {
                     .allMatch(t -> t.getEstadoTramo() == EstadoTramo.FINALIZADO);
 
             if (todosFinalizados) {
-                log.info("¡TODOS LOS TRAMOS FINALIZADOS! Actualizando Solicitud {} a ENTREGADA.", solicitud.getNumSolicitud());
+                log.info("¡TODOS LOS TRAMOS FINALIZADOS! Actualizando Solicitud {} a ENTREGADA.",
+                        solicitud.getNumSolicitud());
                 solicitud.setEstadoSolicitud(EstadoSolicitud.ENTREGADA);
                 solicitudRepository.save(solicitud); // Guardar el estado de la solicitud
             } else {
                 long tramosFaltantes = todosLosTramos.stream()
                         .filter(t -> t.getEstadoTramo() != EstadoTramo.FINALIZADO)
                         .count();
-                log.info("Tramo finalizado. Aún quedan {} tramos pendientes para la Solicitud {}.", tramosFaltantes, solicitud.getNumSolicitud());
+                log.info("Tramo finalizado. Aún quedan {} tramos pendientes para la Solicitud {}.", tramosFaltantes,
+                        solicitud.getNumSolicitud());
             }
         } catch (Exception e) {
-            log.error("Error al verificar el estado de la solicitud después de finalizar el tramo {}: {}", idTramo, e.getMessage());
+            log.error("Error al verificar el estado de la solicitud después de finalizar el tramo {}: {}", idTramo,
+                    e.getMessage());
             // No detenemos la finalización del tramo, pero logueamos el error.
         }
 
@@ -279,14 +287,15 @@ public class TramoService {
 
         // 1. Obtener el ID del Transportista (desde parámetro)
         if (transportistaId == null) {
-            log.warn("El ID de transportista es nulo.");
-            // Esto no debería pasar si el @RequestParam es requerido, pero es buena idea validarlo.
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta 'id_transportista'");
+            log.warn("El ID de transportista obtenido del JWT es nulo.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Falta id de transportista en el token JWT");
         }
-
         // 2. Obtener el Tramo
         Tramo tramo = tramoRepository.findById(idTramo)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tramo no encontrado: " + idTramo));
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tramo no encontrado: " + idTramo));
 
         // 3. Validar que el tramo tenga un camión
         String patenteAsignada = tramo.getPatenteCamionExt();
@@ -304,17 +313,19 @@ public class TramoService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ServicioFlota no disponible");
         }
 
-        // 5. Comprueba si el ID del transportista del parámetro coincide con el ID del dueño del camión
+        // 5. Comprueba si el ID del transportista del parámetro coincide con el ID del
+        // dueño del camión
         if (!camion.getTransportistaId().equals(transportistaId)) {
-            log.warn("¡ACCESO DENEGADO! Transportista (ID de parámetro: {}) intentó operar tramo {} (Patente: {}) que pertenece a Transportista {}",
+            log.warn(
+                    "¡ACCESO DENEGADO! Transportista (ID de parámetro: {}) intentó operar tramo {} (Patente: {}) que pertenece a Transportista {}",
                     transportistaId, idTramo, patenteAsignada, camion.getTransportistaId());
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acceso denegado: Este tramo no pertenece a sus camiones.");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Acceso denegado: Este tramo no pertenece a sus camiones.");
         }
 
         log.debug("Validación exitosa: Transportista {} es dueño del camión {}", transportistaId, patenteAsignada);
         return tramo;
     }
-
 
     // --- MAPPER PRIVADO ---
     private TramoResponseDTO mapToTramoResponse(Tramo tramo) {
@@ -332,7 +343,8 @@ public class TramoService {
     }
 
     private UbicacionResponseDTO mapToUbicacionResponse(Ubicacion u) {
-        if (u == null) return null;
+        if (u == null)
+            return null;
         return UbicacionResponseDTO.builder()
                 .idUbicacion(u.getIdUbicacion())
                 .direccion(u.getDireccion())

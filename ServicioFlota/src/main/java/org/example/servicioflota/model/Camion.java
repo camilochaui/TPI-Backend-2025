@@ -3,16 +3,16 @@ package org.example.servicioflota.model;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
+
 import java.util.List;
 
 @Entity
 @Table(name = "camion")
-@JsonIdentityInfo(
-        generator = ObjectIdGenerators.PropertyGenerator.class,
-        property = "patente")
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "patente")
 public class Camion {
 
     @Id
+    @Column(name = "patente")
     private String patente;
 
     @Column(name = "capacidad_peso")
@@ -30,7 +30,7 @@ public class Camion {
     private Float costoBaseXKm;
 
     @Column(name = "id_combustible_ext")
-    private Integer idCombustible_ext;
+    private Integer idCombustibleExt;
 
     @OneToOne
     @JoinColumn(name = "id_transportista_fk")
@@ -39,7 +39,8 @@ public class Camion {
     @OneToMany(mappedBy = "camion")
     private List<Contenedor> contenedores;
 
-    // Getters y Setters
+    // ---- Getters & Setters ----
+
     public String getPatente() {
         return patente;
     }
@@ -88,12 +89,12 @@ public class Camion {
         this.costoBaseXKm = costoBaseXKm;
     }
 
-    public Integer getIdCombustible_ext() {
-        return idCombustible_ext;
+    public Integer getIdCombustibleExt() {
+        return idCombustibleExt;
     }
 
-    public void setIdCombustible_ext(Integer idCombustible_ext) {
-        this.idCombustible_ext = idCombustible_ext;
+    public void setIdCombustibleExt(Integer idCombustibleExt) {
+        this.idCombustibleExt = idCombustibleExt;
     }
 
     public Transportista getTransportista() {

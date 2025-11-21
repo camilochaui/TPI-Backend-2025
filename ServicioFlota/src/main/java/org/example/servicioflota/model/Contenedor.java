@@ -3,18 +3,18 @@ package org.example.servicioflota.model;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
+
 import java.util.List;
 
 @Entity
 @Table(name = "contenedor")
-@JsonIdentityInfo(
-        generator = ObjectIdGenerators.PropertyGenerator.class,
-        property = "idContenedor")
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "idContenedor")
 public class Contenedor {
 
     @Id
     @Column(name = "id_contenedor")
     private String idContenedor;
+
     private Integer peso;
     private Integer volumen;
 
@@ -32,8 +32,7 @@ public class Contenedor {
     @OneToMany(mappedBy = "contenedor", fetch = FetchType.EAGER)
     private List<CambioEstado> cambiosEstado;
 
-    // --- Getters y Setters ---
-
+    // ---- Helpers ----
     public String getEstadoActual() {
         if (this.cambiosEstado == null || this.cambiosEstado.isEmpty()) {
             return "Sin Estado";
@@ -45,6 +44,8 @@ public class Contenedor {
                 .map(Estado::getNombre)
                 .orElse("Histórico");
     }
+
+    // ---- Getters & Setters ----
 
     public String getIdContenedor() {
         return idContenedor;

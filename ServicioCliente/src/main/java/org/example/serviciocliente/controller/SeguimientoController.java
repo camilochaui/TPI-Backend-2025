@@ -18,8 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-
-// REQ 2 Y 3:
+// :
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/seguimiento")
@@ -33,9 +32,10 @@ public class SeguimientoController {
     public SeguimientoController(SolicitudClienteService solicitudClienteService) {
         this.solicitudClienteService = solicitudClienteService;
     }
-    @Operation(summary = "Consultar seguimiento de un contenedor",
-            description = "Obtiene la información unificada (estado, costo, tiempo) de un envío. " +
-                    "Requiere rol CLIENTE. Valida que el cliente {idCliente} sea el dueño del token.")
+
+    @Operation(summary = "Consultar seguimiento de un contenedor", description = "Obtiene la información unificada (estado, costo, tiempo) de un envío. "
+            +
+            "Requiere rol CLIENTE. Valida que el cliente {idCliente} sea el dueño del token.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Seguimiento encontrado"),
             @ApiResponse(responseCode = "401", description = "No autenticado"),
@@ -48,8 +48,7 @@ public class SeguimientoController {
     public ResponseEntity<SeguimientoDTO> consultarSeguimiento(
             @PathVariable Long idCliente,
             @PathVariable String idContenedor,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
+            @AuthenticationPrincipal Jwt jwt) {
         log.info("Cliente {} consultando seguimiento para contenedor {}", idCliente, idContenedor);
 
         SeguimientoDTO seguimiento = solicitudClienteService.consultarSeguimiento(idCliente, idContenedor);

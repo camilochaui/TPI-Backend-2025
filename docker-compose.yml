@@ -106,8 +106,9 @@ services:
       - postgres
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/tu-realm/protocol/openid-connect/certs
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
       - OSRM_BASE_URL=http://osrm:5000
+      - SERVICIO_ENVIOS_CLIENT_SECRET=${SERVICIO_ENVIOS_CLIENT_SECRET}
     ports:
       - "8082:8082"
     networks:
@@ -119,7 +120,8 @@ services:
     depends_on:
       - postgres
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
+
     ports:
       - "8083:8083"
     networks:
@@ -132,7 +134,8 @@ services:
       - postgres
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/tu-realm/protocol/openid-connect/certs
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
+
     ports:
       - "8084:8084"
     networks:

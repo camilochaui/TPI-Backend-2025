@@ -29,15 +29,17 @@ public class SolicitudClienteService {
     }
 
     // =====================================================
-    // === REQ 2 y 3: CONSULTAR SEGUIMIENTO COMPLETO ======
+    // === : CONSULTAR SEGUIMIENTO COMPLETO ======
     // =====================================================
 
     /**
      * Consulta la información de seguimiento unificada (estado, costo, tiempo)
-     * para un contenedor específico, validando que la consulta la hace un cliente válido.
+     * para un contenedor específico, validando que la consulta la hace un cliente
+     * válido.
      */
     public SeguimientoDTO consultarSeguimiento(Long idCliente, String idContenedor) {
-        log.info("[ORQUESTADOR] Iniciando consulta de seguimiento del contenedor {} para cliente {}", idContenedor, idCliente);
+        log.info("[ORQUESTADOR] Iniciando consulta de seguimiento del contenedor {} para cliente {}", idContenedor,
+                idCliente);
 
         // 1. Usa el servicio de dominio para validar que el cliente existe
         clienteService.findClienteById(idCliente);
@@ -51,7 +53,8 @@ public class SolicitudClienteService {
 
         } catch (Exception e) {
             log.error("[ORQUESTADOR] Error al obtener el seguimiento desde 'servicio-envios': {}", e.getMessage());
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Error al consultar el servicio de seguimiento.");
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Error al consultar el servicio de seguimiento.");
         }
     }
 

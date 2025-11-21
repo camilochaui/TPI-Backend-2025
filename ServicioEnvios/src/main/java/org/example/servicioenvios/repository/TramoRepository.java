@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
-// Asociado con REQ 7) Gestión de Tramos
+// Gestión de Tramos
 
 @Repository
 public interface TramoRepository extends JpaRepository<Tramo, Long> {
@@ -19,7 +19,8 @@ public interface TramoRepository extends JpaRepository<Tramo, Long> {
 
     List<Tramo> findByPatenteCamionExtAndEstadoTramo(String patenteCamionExt, EstadoTramo estado);
 
-    List<Tramo> findByEstadoTramoAndDestino_Tipo_Nombre(org.example.servicioenvios.entity.EstadoTramo estado, String tipoNombre);
+    List<Tramo> findByEstadoTramoAndDestino_Tipo_Nombre(org.example.servicioenvios.entity.EstadoTramo estado,
+            String tipoNombre);
 
     Optional<Tramo> findByPatenteCamionExt(String patenteCamionExt);
 

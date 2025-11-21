@@ -13,10 +13,10 @@ import lombok.NoArgsConstructor;
 public class SeguimientoDTO {
     private String idContenedor;
 
-    // REQ 2) Consultar estado actual
+    // Consultar estado actual
     private String estadoActual;
 
-    // REQ 3) Ver costo y tiempo estimado
+    // Ver costo y tiempo estimado
     private Double costoEstimado;
     private String tiempoEstimado;
 }

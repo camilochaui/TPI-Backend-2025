@@ -29,10 +29,8 @@ spring:
 
   # --- Configuración de inicialización de datos ---
   sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema-tarifa.sql
-      data-locations: classpath:data-tarifa.sql
+    init: spring.sql.init.mode=never
+      spring.jpa.hibernate.ddl-auto=none
 
   # --- Configuración de Seguridad (Keycloak) ---
   security:
@@ -40,7 +38,6 @@ spring:
       resourceserver:
         jwt:
           jwk-set-uri: "http://localhost:8080/realms/tu-realm/protocol/openid-connect/certs"
-
 
 # --- Configuración de Logs ---
 logging:

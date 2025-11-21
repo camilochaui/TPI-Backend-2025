@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 // Controlador para la gestión de tramos por parte del Admin
-// Asociado con el REQ 6) Asignar camión a un tramo de traslado
+//Asignar camión a un tramo de traslado
 
 @Slf4j
 @RestController
@@ -29,7 +29,8 @@ public class TramoAdminController {
         this.tramoService = tramoService;
     }
 
-    @Operation(summary = "Asignar un camión a un tramo", description = "Valida y asigna un camión (por patente) a un tramo específico. " + "Requiere rol ADMIN.")
+    @Operation(summary = "Asignar un camión a un tramo", description = "Valida y asigna un camión (por patente) a un tramo específico. "
+            + "Requiere rol ADMIN.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Camión asignado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
@@ -41,8 +42,7 @@ public class TramoAdminController {
     // @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TramoResponseDTO> asignarCamion(
             @PathVariable Long idTramo,
-            @Valid @RequestBody AsignarCamionRequestDTO requestDTO
-    ) {
+            @Valid @RequestBody AsignarCamionRequestDTO requestDTO) {
         log.info("Recibida solicitud de Admin para asignar camión {} al tramo {}",
                 requestDTO.getPatenteCamion(), idTramo);
 

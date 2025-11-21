@@ -3,6 +3,19 @@ server:
   port: 8082
 
 spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          servicio-envios-client:        # nombre lógico que vamos a usar en el código
+            provider: keycloak
+            client-id: servicio-envios   # EXACTO como el client de Keycloak
+            client-secret: ${SERVICIO_ENVIOS_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            scope: openid
+        provider:
+          keycloak:
+            issuer-uri: http://keycloak:8080/realms/transporte-realm
   application:
     name: servicio-envios
 

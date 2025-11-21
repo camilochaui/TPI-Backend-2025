@@ -3,13 +3,10 @@ package org.example.servicioflota.model;
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
-import java.util.List;
 
 @Entity
 @Table(name = "transportista")
-@JsonIdentityInfo(
-        generator = ObjectIdGenerators.PropertyGenerator.class,
-        property = "idTransportista")
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "idTransportista")
 public class Transportista {
 
     @Id
@@ -25,7 +22,6 @@ public class Transportista {
     @OneToOne(mappedBy = "transportista")
     private Camion camion;
 
-    // Getters y Setters
     public Integer getIdTransportista() {
         return idTransportista;
     }
