@@ -13,7 +13,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString(exclude = "ciudades")
+@ToString
 public class ProvinciaEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

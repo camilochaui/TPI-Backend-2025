@@ -3,20 +3,24 @@ package org.example.serviciocliente.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-// Se elimina el import de @EnableMethodSecurity
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.*;
 
 @Configuration
 @EnableWebSecurity
-
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
@@ -39,9 +43,9 @@ public class SecurityConfig {
                 // Desactiva CSRF (no necesario para APIs REST stateless)
                 .csrf(csrf -> csrf.disable())
 
-                // Configura la autorización de endpoint (Aunque webSecurityCustomizer ya lo ignora, dejamos .permitAll() por coherencia)
+                // Configura la autorización de endpoint
                 .authorizeHttpRequests(authorize -> authorize
-                        .anyRequest().permitAll() // <-- CAMBIADO DE .authenticated()
+                        .anyRequest().authenticated()
                 )
 
                 // Configura el servidor de recursos OAuth2 para validar JWTs (Ahora es opcional, pero lo dejamos para cuando reviertas el cambio)
@@ -68,16 +72,44 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(this::extractKeycloakAuthorities);
+        return converter;
+    }
 
-        // Busca los roles dentro del claim 'realm_access' del JWT de KeyKcloak
-        grantedAuthoritiesConverter.setAuthoritiesClaimName("realm_access");
+    private Collection<GrantedAuthority> extractKeycloakAuthorities(Jwt jwt) {
+        Set<GrantedAuthority> authorities = new HashSet<>();
 
-        // Busca la lista 'roles' dentro de 'realm_access'
-        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_"); // Prefijo estándar
+        // Roles de realm: realm_access.roles
+        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess != null) {
+            Object roles = realmAccess.get("roles");
+            if (roles instanceof Collection<?> col) {
+                col.stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                        .forEach(authorities::add);
+            }
+        }
 
-        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
-        jwtConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
-        return jwtConverter;
+        // Roles por cliente: resource_access.<client>.roles
+        Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+        if (resourceAccess != null) {
+            for (Object clientObj : resourceAccess.values()) {
+                if (clientObj instanceof Map<?, ?> clientMap) {
+                    Object roles = clientMap.get("roles");
+                    if (roles instanceof Collection<?> col) {
+                        col.stream()
+                                .filter(String.class::isInstance)
+                                .map(String.class::cast)
+                                .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                                .forEach(authorities::add);
+                    }
+                }
+            }
+        }
+
+        return authorities;
     }
 }

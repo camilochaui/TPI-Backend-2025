@@ -120,10 +120,10 @@ services:
     depends_on:
       - postgres
     environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
-
     ports:
-      - "8083:8083"
+      - "8085:8085"
     networks:
       - app-transporte
 
@@ -135,9 +135,8 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/tpi_db
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI=http://keycloak:8080/realms/transporte-realm/protocol/openid-connect/certs
-
     ports:
-      - "8084:8084"
+      - "8083:8083"
     networks:
       - app-transporte
 

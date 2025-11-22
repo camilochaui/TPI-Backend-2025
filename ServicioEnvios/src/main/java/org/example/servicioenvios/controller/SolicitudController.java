@@ -161,5 +161,26 @@ public class SolicitudController {
         }
     }
 
+    @PostMapping("/{numSolicitud}/finalizar")
+    @Operation(summary = "Finalizar solicitud calculando costo y tiempo real")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Solicitud finalizada exitosamente"),
+            @ApiResponse(responseCode = "404", description = "Solicitud no encontrada"),
+            @ApiResponse(responseCode = "400", description = "Solicitud no puede finalizarse (tramos incompletos)")
+    })
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")
+    public ResponseEntity<SolicitudResponseDTO> finalizarSolicitud(@PathVariable Long numSolicitud) {
+        log.info("Finalizando solicitud {}", numSolicitud);
+        try {
+            SolicitudResponseDTO solicitudFinalizada = solicitudService.finalizarSolicitud(numSolicitud);
+            log.info("Solicitud {} finalizada. Costo real: ${}, Tiempo real: {}",
+                    numSolicitud, solicitudFinalizada.getCostoReal(), solicitudFinalizada.getTiempoReal());
+            return ResponseEntity.ok(solicitudFinalizada);
+        } catch (Exception e) {
+            log.error("Error al finalizar solicitud {}: {}", numSolicitud, e.getMessage());
+            throw e;
+        }
+    }
+
 }
 

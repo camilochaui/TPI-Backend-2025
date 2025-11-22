@@ -7,5 +7,6 @@ public enum EstadoSolicitud {
     EN_TRANSITO,
     EN_DEPOSITO,
     ENTREGADA,
+    FINALIZADA,
     CANCELADA
 }

@@ -396,6 +396,74 @@ public class SolicitudService {
                 .build();
     }
 
+    @Transactional
+    public SolicitudResponseDTO finalizarSolicitud(Long numSolicitud) {
+        log.info("Iniciando finalización de solicitud {}", numSolicitud);
 
+        // 1. Obtener solicitud y validar que existe
+        Solicitud solicitud = solicitudRepository.findById(numSolicitud)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Solicitud no encontrada con ID: " + numSolicitud));
+
+        // 2. Validar que tiene ruta asignada
+        if (solicitud.getRuta() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La solicitud no tiene una ruta asignada");
+        }
+
+        List<Tramo> tramos = solicitud.getRuta().getTramos();
+        if (tramos == null || tramos.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La solicitud no tiene tramos para calcular");
+        }
+
+        // 3. Validar que todos los tramos están finalizados
+        boolean todosFinalizados = tramos.stream()
+                .allMatch(t -> t.getFechaHoraInicioReal() != null && t.getFechaHoraFinReal() != null);
+
+        if (!todosFinalizados) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "No todos los tramos han sido finalizados (faltan fechas reales)");
+        }
+
+        // 4. Calcular costo real sumando costoReal de todos los tramos
+        Double costoRealTotal = tramos.stream()
+                .map(Tramo::getCostoReal)
+                .filter(costo -> costo != null)
+                .reduce(0.0, Double::sum);
+
+        // 5. Calcular tiempo real total
+        LocalDateTime inicioReal = tramos.stream()
+                .map(Tramo::getFechaHoraInicioReal)
+                .filter(fecha -> fecha != null)
+                .min(LocalDateTime::compareTo)
+                .orElse(null);
+
+        LocalDateTime finReal = tramos.stream()
+                .map(Tramo::getFechaHoraFinReal)
+                .filter(fecha -> fecha != null)
+                .max(LocalDateTime::compareTo)
+                .orElse(null);
+
+        String tiempoReal = null;
+        if (inicioReal != null && finReal != null) {
+            long dias = java.time.Duration.between(inicioReal, finReal).toDays();
+            long horas = java.time.Duration.between(inicioReal, finReal).toHours() % 24;
+            long minutos = java.time.Duration.between(inicioReal, finReal).toMinutes() % 60;
+            tiempoReal = String.format("%d días, %d horas, %d minutos", dias, horas, minutos);
+        }
+
+        // 6. Actualizar solicitud
+        solicitud.setCostoReal(costoRealTotal);
+        solicitud.setTiempoReal(tiempoReal);
+        solicitud.setEstadoSolicitud(EstadoSolicitud.FINALIZADA);
+
+        Solicitud solicitudFinalizada = solicitudRepository.save(solicitud);
+
+        log.info("Solicitud {} finalizada exitosamente. Costo real: ${}, Tiempo real: {}",
+                numSolicitud, costoRealTotal, tiempoReal);
+
+        return mapToSolicitudResponse(solicitudFinalizada);
+    }
 
 }

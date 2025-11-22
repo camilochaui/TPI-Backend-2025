@@ -37,7 +37,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: "http://localhost:8080/realms/tu-realm/protocol/openid-connect/certs"
+          issuer-uri: "http://keycloak:8080/realms/transporte-realm"
 
 # --- Configuración de Logs ---
 logging:

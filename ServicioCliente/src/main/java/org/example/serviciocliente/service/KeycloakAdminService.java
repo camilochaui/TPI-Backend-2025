@@ -48,7 +48,8 @@ public class KeycloakAdminService {
             String userId = createUser(dto, token);
             String password = String.valueOf(dto.getDni()); // contraseña inicial: DNI
             setPassword(userId, password, token);
-            log.info("Keycloak: usuario creado y contraseña asignada para {} (id={})", username, userId);
+            assignRoleCliente(userId, token);
+            log.info("Keycloak: usuario creado, contraseña asignada y rol CLIENTE para {} (id={})", username, userId);
 
         } catch (Exception e) {
             log.error("Error integrando con Keycloak: {}", e.getMessage());
@@ -148,5 +149,44 @@ public class KeycloakAdminService {
 
         HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
         rest.put(url, req);
+    }
+
+    /**
+     * Asigna el rol CLIENTE del realm al usuario.
+     */
+    @SuppressWarnings("unchecked")
+    private void assignRoleCliente(String userId, String token) {
+        try {
+            // 1. Obtener la representación del rol CLIENTE
+            String roleUrl = String.format("%s/admin/realms/%s/roles/CLIENTE", keycloakUrl, realm);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(token);
+            HttpEntity<Void> req = new HttpEntity<>(headers);
+            
+            ResponseEntity<Map> roleResp = rest.exchange(roleUrl, HttpMethod.GET, req, Map.class);
+            if (!roleResp.getStatusCode().is2xxSuccessful() || roleResp.getBody() == null) {
+                throw new RuntimeException("Rol CLIENTE no encontrado en realm " + realm);
+            }
+            
+            Map<String, Object> roleRepresentation = roleResp.getBody();
+            
+            // 2. Asignar el rol al usuario
+            String assignUrl = String.format("%s/admin/realms/%s/users/%s/role-mappings/realm", 
+                    keycloakUrl, realm, userId);
+            
+            HttpHeaders assignHeaders = new HttpHeaders();
+            assignHeaders.setContentType(MediaType.APPLICATION_JSON);
+            assignHeaders.setBearerAuth(token);
+            
+            HttpEntity<List<Map<String, Object>>> assignReq = 
+                    new HttpEntity<>(List.of(roleRepresentation), assignHeaders);
+            
+            rest.postForEntity(assignUrl, assignReq, Void.class);
+            log.info("Rol CLIENTE asignado al usuario ID {}", userId);
+            
+        } catch (Exception e) {
+            log.error("Error al asignar rol CLIENTE: {}", e.getMessage());
+            throw new RuntimeException("No se pudo asignar rol CLIENTE: " + e.getMessage(), e);
+        }
     }
 }

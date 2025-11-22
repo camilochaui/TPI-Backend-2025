@@ -23,18 +23,13 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema-cliente.sql
-      data-locations: classpath:data-clientes.sql
 
   # --- Configuración de Seguridad (Keycloak) ---
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: "http://localhost:8088/realms/transporte-realm/protocol/openid-connect/certs"
+          issuer-uri: "http://keycloak:8080/realms/transporte-realm"
 
 
 # --- Configuración de Logs ---

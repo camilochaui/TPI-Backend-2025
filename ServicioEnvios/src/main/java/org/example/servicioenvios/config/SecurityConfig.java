@@ -8,11 +8,15 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.*;
 
 @Configuration
 @EnableWebSecurity
@@ -61,14 +65,44 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        // Extrae roles desde el claim 'realm_access' en el token JWT
-        grantedAuthoritiesConverter.setAuthoritiesClaimName("realm_access");
-        // Añade el prefijo 'ROLE_' a cada rol para compatibilidad con Spring Security
-        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(this::extractKeycloakAuthorities);
+        return converter;
+    }
 
-        JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
-        jwtConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
-        return jwtConverter;
+    private Collection<GrantedAuthority> extractKeycloakAuthorities(Jwt jwt) {
+        Set<GrantedAuthority> authorities = new HashSet<>();
+
+        // Roles de realm: realm_access.roles
+        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess != null) {
+            Object roles = realmAccess.get("roles");
+            if (roles instanceof Collection<?> col) {
+                col.stream()
+                        .filter(String.class::isInstance)
+                        .map(String.class::cast)
+                        .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                        .forEach(authorities::add);
+            }
+        }
+
+        // Roles por cliente: resource_access.<client>.roles
+        Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+        if (resourceAccess != null) {
+            for (Object clientObj : resourceAccess.values()) {
+                if (clientObj instanceof Map<?, ?> clientMap) {
+                    Object roles = clientMap.get("roles");
+                    if (roles instanceof Collection<?> col) {
+                        col.stream()
+                                .filter(String.class::isInstance)
+                                .map(String.class::cast)
+                                .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
+                                .forEach(authorities::add);
+                    }
+                }
+            }
+        }
+
+        return authorities;
     }
 }

@@ -88,23 +88,48 @@ public class RutaService {
         RutaTentativaDTO rutaDirecta = generarRutaDirecta(solicitud, origen, destino, distanciaDirecta);
         rutas.add(rutaDirecta);
 
-        // 2. Rutas con Depósitos Intermedios
+        // 2. Buscar depósitos intermedios válidos
         List<DepositoDTO> depositosCercanos = buscarDepositosIntermedios(origen, destino, distanciaDirecta);
-        for (DepositoDTO deposito : depositosCercanos) {
-            RutaTentativaDTO rutaConDeposito = generarRutaConDeposito(solicitud, origen, destino, deposito);
-            if (rutaConDeposito != null) {
-                rutas.add(rutaConDeposito);
+        
+        if (!depositosCercanos.isEmpty()) {
+            // 3. Ruta con 1 depósito (el más óptimo)
+            DepositoDTO mejorDeposito = depositosCercanos.get(0);
+            RutaTentativaDTO rutaConUnDeposito = generarRutaConDeposito(solicitud, origen, destino, mejorDeposito);
+            if (rutaConUnDeposito != null) {
+                rutas.add(rutaConUnDeposito);
+            }
+
+            // 4. Ruta con 2 depósitos (si hay al menos 2 candidatos)
+            if (depositosCercanos.size() >= 2) {
+                DepositoDTO deposito1 = depositosCercanos.get(0);
+                DepositoDTO deposito2 = depositosCercanos.get(1);
+                RutaTentativaDTO rutaConDosDepositos = generarRutaConDosDepositos(
+                        solicitud, origen, destino, deposito1, deposito2);
+                if (rutaConDosDepositos != null) {
+                    rutas.add(rutaConDosDepositos);
+                }
+            }
+
+            // 5. Si hay 3+ depósitos, agregar una tercera opción con el segundo mejor
+            if (depositosCercanos.size() >= 3 && rutas.size() < 4) {
+                DepositoDTO tercerDeposito = depositosCercanos.get(2);
+                RutaTentativaDTO rutaAlternativa = generarRutaConDeposito(
+                        solicitud, origen, destino, tercerDeposito);
+                if (rutaAlternativa != null) {
+                    rutas.add(rutaAlternativa);
+                }
             }
         }
 
         // Asignar IDs a las rutas
-        AtomicInteger contador = new AtomicInteger(0);
+        AtomicInteger contador = new AtomicInteger(1);
         rutas.forEach(ruta -> ruta.setIdRutaTentativa(contador.getAndIncrement()));
 
-        // Ordenar por costo
+        // Ordenar por costo total estimado (más económica primero)
         rutas.sort(Comparator.comparing(RutaTentativaDTO::getCostoTotalEstimado));
 
-        log.info("Generadas {} rutas tentativas para solicitud {}", rutas.size(), numSolicitud);
+        log.info("✅ Generadas {} rutas tentativas para solicitud {} (directa + {} con depósitos)", 
+                rutas.size(), numSolicitud, rutas.size() - 1);
         return rutas;
     }
 
@@ -171,13 +196,20 @@ public class RutaService {
         return solicitudService.mapToSolicitudResponse(solicitudActualizada);
     }
 
+    /**
+     * Busca depósitos intermedios válidos entre origen y destino.
+     * Filtra por desvío máximo y ordena por desvío mínimo (más eficiente primero).
+     */
     private List<DepositoDTO> buscarDepositosIntermedios(Ubicacion origen, Ubicacion destino, double distanciaDirecta) {
-        List<DepositoDTO> depositosCandidatos = new ArrayList<>();
+        List<DepositoCandidate> candidatos = new ArrayList<>();
 
         try {
             List<DepositoDTO> todosLosDepositos = flotaFeignClient.listarDepositos();
+            log.info("Analizando {} depósitos para encontrar intermedios (desvío máx: {} km)", 
+                    todosLosDepositos.size(), DESVIO_MAXIMO_KM);
 
             for (DepositoDTO deposito : todosLosDepositos) {
+                // Calcular distancias usando Haversine (más rápido para filtrado inicial)
                 double distOrigenDeposito = osrmService.calcularDistanciaHaversine(
                         origen.getLatitud(), origen.getLongitud(),
                         deposito.getLatitud(), deposito.getLongitud()
@@ -190,23 +222,48 @@ public class RutaService {
                 double distanciaTotal = distOrigenDeposito + distDepositoDestino;
                 double desvio = distanciaTotal - distanciaDirecta;
 
+                // Filtrar: debe tener desvío positivo pero dentro del máximo permitido
                 if (desvio > 0 && desvio <= DESVIO_MAXIMO_KM) {
-                    log.info("Depósito candidato: {} (Desvío: {:.2f} km, Dist Total: {:.2f} km)",
+                    candidatos.add(new DepositoCandidate(deposito, desvio, distanciaTotal));
+                    log.debug("   ✓ {} - Desvío: {:.1f} km, Dist Total: {:.1f} km",
                             deposito.getNombre(), desvio, distanciaTotal);
-                    depositosCandidatos.add(deposito);
                 }
             }
 
-            if (depositosCandidatos.isEmpty()) {
-                log.warn("No se encontraron depósitos intermedios válidos (desvío máximo: {} km)",
+            if (candidatos.isEmpty()) {
+                log.warn("⚠️ No se encontraron depósitos intermedios válidos (desvío máx: {} km)",
                         DESVIO_MAXIMO_KM);
+                return List.of();
             }
 
-        } catch (Exception e) {
-            log.error("Error al buscar depósitos intermedios: {}", e.getMessage());
-        }
+            // Ordenar por desvío (menor primero = más eficiente)
+            candidatos.sort(Comparator.comparingDouble(c -> c.desvio));
 
-        return depositosCandidatos;
+            log.info("✅ {} depósitos candidatos encontrados (ordenados por eficiencia)", candidatos.size());
+            return candidatos.stream()
+                    .limit(5) // Máximo 5 depósitos para evaluar
+                    .map(c -> c.deposito)
+                    .toList();
+
+        } catch (Exception e) {
+            log.error("❌ Error al buscar depósitos intermedios: {}", e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    /**
+     * Clase auxiliar para ordenar depósitos candidatos por eficiencia
+     */
+    private static class DepositoCandidate {
+        final DepositoDTO deposito;
+        final double desvio;
+        final double distanciaTotal;
+
+        DepositoCandidate(DepositoDTO deposito, double desvio, double distanciaTotal) {
+            this.deposito = deposito;
+            this.desvio = desvio;
+            this.distanciaTotal = distanciaTotal;
+        }
     }
 
     private RutaTentativaDTO generarRutaDirecta(Solicitud solicitud, Ubicacion origen,
@@ -273,6 +330,73 @@ public class RutaService {
 
         } catch (Exception e) {
             log.error("Error generando ruta con depósito {}: {}", deposito.getNombre(), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Genera una ruta con 2 depósitos intermedios: origen → dep1 → dep2 → destino
+     */
+    private RutaTentativaDTO generarRutaConDosDepositos(Solicitud solicitud, Ubicacion origen,
+                                                        Ubicacion destino, 
+                                                        DepositoDTO deposito1, 
+                                                        DepositoDTO deposito2) {
+        try {
+            Ubicacion ubicDep1 = mapDepositoToUbicacion(deposito1);
+            Ubicacion ubicDep2 = mapDepositoToUbicacion(deposito2);
+
+            // Calcular distancias de cada tramo
+            double distTramo1 = osrmService.calcularDistanciaEntreUbicaciones(origen, ubicDep1);
+            double distTramo2 = osrmService.calcularDistanciaEntreUbicaciones(ubicDep1, ubicDep2);
+            double distTramo3 = osrmService.calcularDistanciaEntreUbicaciones(ubicDep2, destino);
+
+            double costoEstadia = 5000.0; // Costo por depósito
+
+            // Calcular costos de cada tramo (incluye estadía en los depósitos intermedios)
+            double costoTramo1 = calcularCostosService.calcularCostoTramo(distTramo1, costoEstadia);
+            double costoTramo2 = calcularCostosService.calcularCostoTramo(distTramo2, costoEstadia);
+            double costoTramo3 = calcularCostosService.calcularCostoTramo(distTramo3, 0.0);
+
+            // Construir DTOs de tramos
+            TramoResponseDTO tramo1 = TramoResponseDTO.builder()
+                    .origen(mapToUbicacionResponse(origen))
+                    .destino(mapToUbicacionResponse(ubicDep1))
+                    .distanciaKmEstimada(distTramo1)
+                    .costoEstimado(costoTramo1)
+                    .costoEstadiaDeposito(costoEstadia)
+                    .build();
+
+            TramoResponseDTO tramo2 = TramoResponseDTO.builder()
+                    .origen(mapToUbicacionResponse(ubicDep1))
+                    .destino(mapToUbicacionResponse(ubicDep2))
+                    .distanciaKmEstimada(distTramo2)
+                    .costoEstimado(costoTramo2)
+                    .costoEstadiaDeposito(costoEstadia)
+                    .build();
+
+            TramoResponseDTO tramo3 = TramoResponseDTO.builder()
+                    .origen(mapToUbicacionResponse(ubicDep2))
+                    .destino(mapToUbicacionResponse(destino))
+                    .distanciaKmEstimada(distTramo3)
+                    .costoEstimado(costoTramo3)
+                    .costoEstadiaDeposito(0.0)
+                    .build();
+
+            double costoTotal = costoTramo1 + costoTramo2 + costoTramo3;
+            double distanciaTotal = distTramo1 + distTramo2 + distTramo3;
+
+            return RutaTentativaDTO.builder()
+                    .descripcion(String.format("Ruta vía %s y %s", 
+                            deposito1.getNombre(), deposito2.getNombre()))
+                    .distanciaTotalKm(distanciaTotal)
+                    .costoTotalEstimado((Double) costoTotal)
+                    .cantidadTramos(3)
+                    .tramos(List.of(tramo1, tramo2, tramo3))
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Error generando ruta con 2 depósitos ({}, {}): {}", 
+                    deposito1.getNombre(), deposito2.getNombre(), e.getMessage());
             return null;
         }
     }

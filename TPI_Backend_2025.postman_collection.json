@@ -1,0 +1,1095 @@
+{
+	"info": {
+		"_postman_id": "tpi-backend-2025",
+		"name": "TPI Backend 2025 - Sistema de Transporte",
+		"description": "Colección completa para testing del sistema de gestión de transporte de contenedores.\n\n**Flujo Principal:**\n1. Autenticación con Keycloak (roles: CLIENTE, ADMIN, TRANSPORTISTA, OPERADOR)\n2. Registro de cliente y creación de solicitud\n3. Generación de rutas tentativas con depósitos intermedios\n4. Asignación de ruta y camión\n5. Inicio y finalización de tramos\n6. Seguimiento de solicitud\n7. Cálculo de costo y tiempo final\n\n**Configuración requerida:**\n- Keycloak realm: `transporte-realm`\n- Usuarios creados con roles correspondientes\n- Servicios corriendo en Docker (localhost:8081-8085)\n- OSRM disponible en localhost:5000",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-refresh token si está por expirar",
+					"const tokenExpiresAt = pm.environment.get('token_expires_at');",
+					"const now = Date.now();",
+					"",
+					"if (!tokenExpiresAt || now >= tokenExpiresAt) {",
+					"    console.log('Token expired or not set, will be refreshed by Auth requests');",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost",
+			"type": "string"
+		},
+		{
+			"key": "api_gateway_port",
+			"value": "9000",
+			"type": "string"
+		},
+		{
+			"key": "keycloak_port",
+			"value": "8088",
+			"type": "string"
+		},
+		{
+			"key": "realm",
+			"value": "transporte-realm",
+			"type": "string"
+		},
+		{
+			"key": "client_id",
+			"value": "transporte-client",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "token_expires_at",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "num_solicitud",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "ruta_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "tramo_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Autenticación",
+			"item": [
+				{
+					"name": "Login CLIENTE",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('access_token', jsonData.access_token);",
+									"    ",
+									"    // Calcular tiempo de expiración",
+									"    const expiresIn = jsonData.expires_in || 300;",
+									"    const expiresAt = Date.now() + (expiresIn * 1000);",
+									"    pm.environment.set('token_expires_at', expiresAt);",
+									"    ",
+									"    console.log('✅ Token obtenido, válido por ' + expiresIn + ' segundos');",
+									"} else {",
+									"    console.error('❌ Error al obtener token');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "cliente1",
+									"type": "text",
+									"description": "Usuario con rol CLIENTE"
+								},
+								{
+									"key": "password",
+									"value": "password123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}:{{keycloak_port}}/realms/{{realm}}/protocol/openid-connect/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "{{keycloak_port}}",
+							"path": [
+								"realms",
+								"{{realm}}",
+								"protocol",
+								"openid-connect",
+								"token"
+							]
+						},
+						"description": "Obtiene access token para usuario con rol CLIENTE.\n\n**Requisito previo:** Usuario `cliente1` creado en Keycloak con rol `CLIENTE`."
+					},
+					"response": []
+				},
+				{
+					"name": "Login ADMIN",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('access_token', jsonData.access_token);",
+									"    const expiresIn = jsonData.expires_in || 300;",
+									"    const expiresAt = Date.now() + (expiresIn * 1000);",
+									"    pm.environment.set('token_expires_at', expiresAt);",
+									"    console.log('✅ Token ADMIN obtenido');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "admin",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "admin123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}:{{keycloak_port}}/realms/{{realm}}/protocol/openid-connect/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "{{keycloak_port}}",
+							"path": [
+								"realms",
+								"{{realm}}",
+								"protocol",
+								"openid-connect",
+								"token"
+							]
+						},
+						"description": "Obtiene token para usuario ADMIN (necesario para asignar rutas y camiones)."
+					},
+					"response": []
+				},
+				{
+					"name": "Login TRANSPORTISTA",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('access_token', jsonData.access_token);",
+									"    const expiresIn = jsonData.expires_in || 300;",
+									"    const expiresAt = Date.now() + (expiresIn * 1000);",
+									"    pm.environment.set('token_expires_at', expiresAt);",
+									"    console.log('✅ Token TRANSPORTISTA obtenido');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/x-www-form-urlencoded"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "grant_type",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "client_id",
+									"value": "{{client_id}}",
+									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "transportista1",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}:{{keycloak_port}}/realms/{{realm}}/protocol/openid-connect/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "{{keycloak_port}}",
+							"path": [
+								"realms",
+								"{{realm}}",
+								"protocol",
+								"openid-connect",
+								"token"
+							]
+						},
+						"description": "Token para TRANSPORTISTA (iniciar/finalizar tramos)."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de autenticación con Keycloak.\n\n**Configuración requerida en Keycloak:**\n- Realm: `transporte-realm`\n- Client: `transporte-client` (public, direct access grants enabled)\n- Roles: CLIENTE, ADMIN, TRANSPORTISTA, OPERADOR\n- Usuarios:\n  - `cliente1` (rol CLIENTE)\n  - `admin` (rol ADMIN)\n  - `transportista1` (rol TRANSPORTISTA)"
+		},
+		{
+			"name": "2. Gestión de Clientes",
+			"item": [
+				{
+					"name": "Registrar Cliente",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200 || pm.response.code === 201) {",
+									"    console.log('✅ Cliente registrado exitosamente');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Pérez\",\n  \"dni\": \"38456789\",\n  \"cuit\": \"20-38456789-5\",\n  \"correo\": \"juan.perez@email.com\",\n  \"telefono\": \"+54 9 351 123-4567\",\n  \"ciudadId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}:8081/api/v1/clientes/registro",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8081",
+							"path": [
+								"api",
+								"v1",
+								"clientes",
+								"registro"
+							]
+						},
+						"description": "Registra un nuevo cliente en el sistema.\n\n**Nota:** Si está implementada la integración con Keycloak Admin API, este endpoint también creará el usuario en Keycloak con rol CLIENTE."
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener Cliente por DNI",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8081/api/v1/clientes/solicitud?dni=38456789",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8081",
+							"path": [
+								"api",
+								"v1",
+								"clientes",
+								"solicitud"
+							],
+							"query": [
+								{
+									"key": "dni",
+									"value": "38456789"
+								}
+							]
+						},
+						"description": "Busca cliente por DNI (usado al crear solicitudes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Todas las Provincias",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8081/api/v1/provincias",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8081",
+							"path": [
+								"api",
+								"v1",
+								"provincias"
+							]
+						},
+						"description": "Obtiene lista de provincias disponibles."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Ciudades de una Provincia",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8081/api/v1/ciudades/provincia/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8081",
+							"path": [
+								"api",
+								"v1",
+								"ciudades",
+								"provincia",
+								"1"
+							]
+						},
+						"description": "Ciudades de una provincia específica (usar para obtener IDs)."
+					},
+					"response": []
+				}
+			],
+			"description": "CRUD de clientes y entidades geográficas (provincias/ciudades)."
+		},
+		{
+			"name": "3. Gestión de Solicitudes",
+			"item": [
+				{
+					"name": "Crear Solicitud de Envío",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200 || pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('num_solicitud', jsonData.numSolicitud || jsonData.id);",
+									"    console.log('✅ Solicitud creada: ' + pm.environment.get('num_solicitud'));",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"clienteDni\": \"38456789\",\n  \"contenedorId\": 1,\n  \"depositoOrigenId\": 1,\n  \"depositoDestinoId\": 5,\n  \"fechaRetiroEstimada\": \"2025-12-01T10:00:00\",\n  \"observaciones\": \"Frágil - Manejar con cuidado\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/envios",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"envios"
+							]
+						},
+						"description": "Crea una nueva solicitud de envío.\n\n**Rol requerido:** CLIENTE o ADMIN\n\n**Estado inicial:** PENDIENTE"
+					},
+					"response": []
+				},
+				{
+					"name": "Consultar Rutas Tentativas",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.length > 0) {",
+									"        pm.environment.set('ruta_id', jsonData[0].id);",
+									"        console.log('✅ Rutas tentativas obtenidas: ' + jsonData.length);",
+									"        console.log('   Ruta seleccionada ID: ' + jsonData[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/rutas/tentativas/{{num_solicitud}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"rutas",
+								"tentativas",
+								"{{num_solicitud}}"
+							]
+						},
+						"description": "Genera 2-3 rutas alternativas usando OSRM con depósitos intermedios opcionales.\n\n**Criterio 5:** Rutas alternativas\n\n**Respuesta esperada:**\n```json\n[\n  {\n    \"id\": 1,\n    \"distanciaTotal\": 450.5,\n    \"tiempoEstimado\": 6.5,\n    \"tramos\": [...],\n    \"depositosIntermedios\": [2]\n  },\n  ...\n]\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Asignar Ruta a Solicitud",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Ruta asignada correctamente');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rutaId\": {{ruta_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/rutas/asignacion/{{num_solicitud}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"rutas",
+								"asignacion",
+								"{{num_solicitud}}"
+							]
+						},
+						"description": "Asigna una de las rutas tentativas a la solicitud.\n\n**Rol requerido:** ADMIN\n\n**Estado cambia a:** RUTA_ASIGNADA"
+					},
+					"response": []
+				},
+				{
+					"name": "Seguimiento de Solicitud",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/envios/{{num_solicitud}}/seguimiento",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"envios",
+								"{{num_solicitud}}",
+								"seguimiento"
+							]
+						},
+						"description": "Consulta el estado actual de una solicitud.\n\n**Criterio 7:** Seguimiento para el cliente\n\n**Respuesta incluye:**\n- Estado actual\n- Ruta asignada\n- Tramos con sus estados (PENDIENTE/EN_PROCESO/FINALIZADO)\n- Ubicación actual del camión\n- Costo estimado y real\n- Tiempo estimado y real"
+					},
+					"response": []
+				},
+				{
+					"name": "Calcular Costos de Solicitud",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/envios/{{num_solicitud}}/calculo",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"envios",
+								"{{num_solicitud}}",
+								"calculo"
+							]
+						},
+						"description": "Calcula el costo estimado de la solicitud basado en:\n- Distancia total\n- Tipo de contenedor\n- Tarifas base\n\n**Criterio 8:** Cálculos de costos"
+					},
+					"response": []
+				},
+				{
+					"name": "Finalizar Solicitud",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    console.log('✅ Solicitud finalizada');",
+									"    console.log('   Costo Final: $' + jsonData.costoReal);",
+									"    console.log('   Tiempo Real: ' + jsonData.tiempoReal + ' horas');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/envios/{{num_solicitud}}/finalizar",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"envios",
+								"{{num_solicitud}}",
+								"finalizar"
+							]
+						},
+						"description": "Calcula y persiste el costo final y tiempo real basado en:\n- Suma de `costoReal` de todos los tramos\n- Diferencia entre inicio del primer tramo y fin del último\n\n**Criterio 8:** Cálculos de tiempos\n\n**Estado cambia a:** FINALIZADA"
+					},
+					"response": []
+				}
+			],
+			"description": "Flujo completo de solicitudes desde creación hasta finalización."
+		},
+		{
+			"name": "4. Gestión de Flota",
+			"item": [
+				{
+					"name": "Listar Camiones Disponibles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8085/api/v1/camiones?disponible=true",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"camiones"
+							],
+							"query": [
+								{
+									"key": "disponible",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Obtiene camiones con estado DISPONIBLE."
+					},
+					"response": []
+				},
+				{
+					"name": "Asignar Camión a Tramo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Camión asignado al tramo');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"tramoId\": 1,\n  \"patente\": \"AB123CD\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}:8085/api/v1/camiones/AB123CD/camion-asignado",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"camiones",
+								"AB123CD",
+								"camion-asignado"
+							]
+						},
+						"description": "Asigna un camión disponible a un tramo específico.\n\n**Criterio 6:** Asignación de camión\n\n**Validaciones:**\n- Camión debe estar DISPONIBLE\n- Capacidad >= peso del contenedor\n- Camión pasa a estado ASIGNADO"
+					},
+					"response": []
+				},
+				{
+					"name": "Vincular Contenedor a Camión",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"contenedorId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}:8085/api/v1/camiones/AB123CD/vincular-contenedor",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"camiones",
+								"AB123CD",
+								"vincular-contenedor"
+							]
+						},
+						"description": "Vincula el contenedor al camión asignado."
+					},
+					"response": []
+				},
+				{
+					"name": "Liberar Camión",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8085/api/v1/camiones/AB123CD/camion-libre",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"camiones",
+								"AB123CD",
+								"camion-libre"
+							]
+						},
+						"description": "Libera un camión (vuelve a estado DISPONIBLE)."
+					},
+					"response": []
+				}
+			],
+			"description": "Gestión de camiones: asignación, vinculación de contenedores, liberación."
+		},
+		{
+			"name": "5. Operatoria Transportista",
+			"item": [
+				{
+					"name": "Listar Tramos del Transportista",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const jsonData = pm.response.json();",
+									"    if (jsonData.length > 0) {",
+									"        pm.environment.set('tramo_id', jsonData[0].id);",
+									"        console.log('✅ Tramos obtenidos: ' + jsonData.length);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8085/api/v1/transportista/tramos",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"transportista",
+								"tramos"
+							]
+						},
+						"description": "Lista tramos asignados al transportista autenticado.\n\n**Rol requerido:** TRANSPORTISTA"
+					},
+					"response": []
+				},
+				{
+					"name": "Iniciar Tramo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Tramo iniciado - Estado: EN_PROCESO');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8085/api/v1/transportista/tramos/{{tramo_id}}/iniciar",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"transportista",
+								"tramos",
+								"{{tramo_id}}",
+								"iniciar"
+							]
+						},
+						"description": "Inicia un tramo (registra `fechaHoraInicioReal`).\n\n**Criterio 6:** Operatoria del transportista\n\n**Estado cambia a:** EN_PROCESO"
+					},
+					"response": []
+				},
+				{
+					"name": "Finalizar Tramo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    console.log('✅ Tramo finalizado - Estado: FINALIZADO');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8085/api/v1/transportista/tramos/{{tramo_id}}/finalizar",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"transportista",
+								"tramos",
+								"{{tramo_id}}",
+								"finalizar"
+							]
+						},
+						"description": "Finaliza un tramo (registra `fechaHoraFinReal`).\n\n**Estado cambia a:** FINALIZADO"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints para transportistas: visualizar tramos asignados, iniciar y finalizar."
+		},
+		{
+			"name": "6. Gestión de Tarifas",
+			"item": [
+				{
+					"name": "Obtener Tarifa Base",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8083/api/v1/tarifas/base",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"tarifas",
+								"base"
+							]
+						},
+						"description": "Obtiene las tarifas base activas (por km, por contenedor, etc.)."
+					},
+					"response": []
+				},
+				{
+					"name": "Calcular Costo de Tramo",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"distanciaKm\": 450.5,\n  \"tipoContenedor\": \"20_PIES\",\n  \"pesoKg\": 15000\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}:8083/api/v1/tarifas/calcular",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"tarifas",
+								"calcular"
+							]
+						},
+						"description": "Calcula el costo de un tramo basado en distancia, tipo y peso del contenedor."
+					},
+					"response": []
+				}
+			],
+			"description": "Servicio de tarifas: consulta de tarifas base y cálculo de costos."
+		},
+		{
+			"name": "Health Checks",
+			"item": [
+				{
+					"name": "Health - Servicio Cliente",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8081/actuator/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8081",
+							"path": [
+								"actuator",
+								"health"
+							]
+						},
+						"description": "Verifica estado del servicio de clientes."
+					},
+					"response": []
+				},
+				{
+					"name": "Health - Servicio Envíos",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8082/actuator/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"actuator",
+								"health"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Health - Servicio Tarifa",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8083/actuator/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8083",
+							"path": [
+								"actuator",
+								"health"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Health - Servicio Flota",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8085/actuator/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8085",
+							"path": [
+								"actuator",
+								"health"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "OSRM Status",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:5000/",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "5000",
+							"path": [
+								""
+							]
+						},
+						"description": "Verifica que OSRM esté funcionando correctamente."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de health check para validar estado de servicios."
+		}
+	]
+}
