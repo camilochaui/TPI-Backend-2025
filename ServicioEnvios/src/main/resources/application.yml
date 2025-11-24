@@ -3,19 +3,6 @@ server:
   port: 8082
 
 spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          servicio-envios-client:        # nombre lógico que vamos a usar en el código
-            provider: keycloak
-            client-id: servicio-envios   # EXACTO como el client de Keycloak
-            client-secret: ${SERVICIO_ENVIOS_CLIENT_SECRET}
-            authorization-grant-type: client_credentials
-            scope: openid
-        provider:
-          keycloak:
-            issuer-uri: http://keycloak:8080/realms/transporte-realm
   application:
     name: servicio-envios
 
@@ -28,30 +15,6 @@ spring:
     url: jdbc:postgresql://postgres:5432/tpi_db
     username: postgres
     password: 0852
-    driver-class-name: org.postgresql.Driver
-
-  # --- Configuración de JPA (Hibernate) ---
-  jpa:
-    hibernate:
-      ddl-auto: none
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
-  # --- Configuración de inicialización de datos ---
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema_envios.sql
-      data-locations: classpath:data_envios.sql
-
-  # --- Configuración de Seguridad (Keycloak) ---
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
           issuer-uri: "http://keycloak:8080/realms/transporte-realm"
 
 # --- Configuración de Servicios Externos ---

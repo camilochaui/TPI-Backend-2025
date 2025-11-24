@@ -27,7 +27,8 @@ public class SecurityConfig {
                                 "/servicio-cliente/v3/api-docs/**", "/servicio-cliente/swagger-ui/**",
                                 "/servicio-flota/v3/api-docs/**", "/servicio-flota/swagger-ui/**",
                                 "/servicio-tarifa/v3/api-docs/**", "/servicio-tarifa/swagger-ui/**",
-                                "/webjars/**"
+                                "/webjars/**",
+                                "/actuator/**"
                         ).permitAll()
                         // Requiere autenticación para cualquier otra petición
                         .anyExchange().authenticated()
