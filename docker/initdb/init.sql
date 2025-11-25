@@ -316,6 +316,31 @@ CREATE TABLE IF NOT EXISTS calculo (
   detalle JSON
 );
 
--- Optional: seed tarifa data can be added here if needed
+-- seed data tarifas
+INSERT INTO combustible (idcombustible, nombre, precio_x_litro) VALUES
+(1, 'Diesel', 850.00),
+(2, 'Super', 920.00),
+(3, 'GNC', 450.00),
+(4, 'Premium', 1050.00);
+
+INSERT INTO tarifabasekm (idtarifakm, volumenmin, volumenmax, costobasekm) VALUES
+(1, 0.0, 50.0, 45.00),
+(2, 50.1, 100.0, 55.00),
+(3, 100.1, 200.0, 65.00),
+(4, 200.1, 500.0, 75.00),
+(5, 500.1, 1000.0, 85.00);
+
+INSERT INTO tarifaestadia (idestadia, costodiario, nombre, iddeposito_ext) VALUES
+(1, 1500.00, 'Tarifa Estándar Buenos Aires', 1),
+(2, 1200.00, 'Tarifa Estándar Córdoba', 2),
+(3, 1100.00, 'Tarifa Estándar Santa Fe', 3),
+(4, 1300.00, 'Tarifa Estándar Mendoza', 4),
+(5, 1000.00, 'Tarifa Estándar Tucumán', 5),
+(6, 950.00, 'Tarifa Estándar Salta', 6),
+(7, 900.00, 'Tarifa Estándar Entre Ríos', 7),
+(8, 850.00, 'Tarifa Estándar Misiones', 8);
+
+INSERT INTO tarifagestion (idtarifagestion, costofijotramo) VALUES
+(1, 5000.00);
 
 -- End of init script
