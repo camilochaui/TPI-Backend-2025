@@ -29,9 +29,8 @@ public class SecurityConfig {
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
         return (web) -> web.ignoring().requestMatchers(
-                "/api/v1/**",      // <-- Ignora toda tu API
-                "/v3/api-docs/**", // <-- Ignora la especificación OpenAPI
-                "/swagger-ui/**",  // <-- Ignora la UI de Swagger
+                "/v3/api-docs/**",
+                "/swagger-ui/**",
                 "/swagger-ui.html",
                 "/actuator/**"
         );

@@ -19,7 +19,7 @@ conv.setAuthorityPrefix("ROLE_");
 
 **Validación:**
 - Token JWT debe mapear roles correctamente
-- Endpoints con `@PreAuthorize("hasRole('ADMIN')")` deben funcionar
+- Endpoints con `@PreAuthorize("hasRole('ADMINISTRADOR')")` deben funcionar
 
 ---
 

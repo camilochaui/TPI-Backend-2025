@@ -1,4 +1,3 @@
-# --- Identidad del Servicio (Spring) ---
 server:
   port: 8082
 
@@ -10,12 +9,26 @@ spring:
     config:
       enabled: false
 
-  # --- Configuración de Base de Datos (PostgreSQL) ---
   datasource:
     url: jdbc:postgresql://postgres:5432/tpi_db
     username: postgres
     password: 0852
-          issuer-uri: "http://keycloak:8080/realms/transporte-realm"
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8080/realms/transporte-realm
 
 # --- Configuración de Servicios Externos ---
 servicio:

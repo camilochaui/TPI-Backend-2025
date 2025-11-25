@@ -41,7 +41,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "409", description = "Conflicto (DNI o Email ya existen)")
     })
     @PostMapping("/registro")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ClienteResponseDTO> registrarCliente(@Valid @RequestBody ClienteRequestDTO dto) {
         log.info("Solicitud de registro para cliente con DNI {}", dto.getDni());
         ClienteResponseDTO clienteCreado = clienteService.registrarCliente(dto);
@@ -50,7 +50,7 @@ public class ClienteController {
 
     @Operation(summary = "Listar todos los clientes", description = "Requiere rol ADMIN.")
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<List<ClienteResponseDTO>> listarClientes() {
         return ResponseEntity.ok(clienteService.listarClientes());
     }
@@ -61,7 +61,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "404", description = "Cliente no encontrado")
     })
     @GetMapping("/{idCliente}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ClienteResponseDTO> obtenerClientePorId(@PathVariable Long idCliente) {
         return ResponseEntity.ok(clienteService.obtenerClientePorId(idCliente));
     }
@@ -73,7 +73,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "409", description = "Conflicto (DNI o Email ya en uso)")
     })
     @PutMapping("/{idCliente}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ClienteResponseDTO> editarCliente(
             @PathVariable Long idCliente,
             @Valid @RequestBody ClienteRequestDTO dto) {
@@ -88,7 +88,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "404", description = "Cliente no encontrado")
     })
     @DeleteMapping("/{idCliente}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<Void> eliminarCliente(@PathVariable Long idCliente) {
         log.info("Solicitud de eliminación para cliente ID {}", idCliente);
         clienteService.eliminarCliente(idCliente);
@@ -105,7 +105,7 @@ public class ClienteController {
     })
 
     @PostMapping("/solicitud")
-    @PreAuthorize("hasRole('SERVICIO_CLIENTES') or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('CLIENTE') or hasRole('ADMINISTRADOR')")
     public ResponseEntity<ClienteResponseDTO> registrarOObtenerCliente(
             @Valid @RequestBody ClienteRequestDTO dto) {
         log.info("Solicitud de registro/obtención para cliente con DNI {}", dto.getDni());

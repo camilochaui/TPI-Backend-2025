@@ -39,7 +39,7 @@ public class TramoAdminController {
             @ApiResponse(responseCode = "503", description = "ServicioFlota no disponible")
     })
     @PostMapping("/{idTramo}/camion-asignacion")
-    // @PreAuthorize("hasRole('ADMIN')")
+    // @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<TramoResponseDTO> asignarCamion(
             @PathVariable Long idTramo,
             @Valid @RequestBody AsignarCamionRequestDTO requestDTO) {

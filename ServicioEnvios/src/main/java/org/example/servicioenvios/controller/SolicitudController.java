@@ -76,7 +76,7 @@ public class SolicitudController {
 
     @Operation(summary = "Obtener listado de solicitudes")
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<List<SolicitudResponseDTO>> obtenerSolicitudes(
             @RequestParam(required = false) EstadoSolicitud estado) {
         log.info("Consultando solicitudes con filtro: {}", estado);
@@ -97,7 +97,7 @@ public class SolicitudController {
 
     @Operation(summary = "Actualizar estado de una solicitud")
     @PutMapping("/{numSolicitud}/estado")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
 
     public ResponseEntity<SolicitudResponseDTO> cambiarEstado(
             @PathVariable Long numSolicitud,
