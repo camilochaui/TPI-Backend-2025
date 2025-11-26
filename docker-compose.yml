@@ -30,19 +30,16 @@ services:
     image: ghcr.io/project-osrm/osrm-backend:v6.0.0
     container_name: osrm-prepare
     volumes:
-      - ${OSRM_PBF_DIR}:/data     # Monta la carpeta local con el .pbf (definida en .env)
-      - osrm_data:/osrm-data      # Monta el volumen persistente para los archivos .osrm
+      - osrm_data:/data
     command: >
       /bin/sh -c "
-        if [ ! -f /osrm-data/argentina-251110.osrm ]; then
+        if [ ! -f /data/argentina-251110.osrm ]; then
           echo '--- OSRM data not found, generating... ---';
           # 1. Extrae usando el .pbf de /data
           osrm-extract -p /opt/car.lua /data/argentina-251110.osm.pbf &&
-          # 2. Particiona y contrae los archivos generados (que están en /data por defecto)
+          # 2. Particiona y contrae los archivos generados (se generan en /data)
           osrm-partition /data/argentina-251110.osrm &&
           osrm-contract /data/argentina-251110.osrm;
-          # 3. Mueve TODOS los archivos generados al volumen persistente /osrm-data
-          mv /data/argentina-251110.* /osrm-data/;
           echo '--- OSRM data generated successfully. ---';
         else
           echo '--- OSRM data already exists, skipping generation. ---';
@@ -59,11 +56,10 @@ services:
     volumes:
       - osrm_data:/data
     command: >
-      osrm-routed --algorithm ch /data/argentina-251110.osrm
+      sh -c "echo 'starting osrm-routed'; osrm-routed /data/argentina-251110.osrm"
     restart: unless-stopped
     depends_on:
-      osrm-prepare: # <-- AÑADIR ESTA DEPENDENCIA
-        condition: service_completed_successfully
+      - osrm-prepare
     networks:
       - app-transporte
 

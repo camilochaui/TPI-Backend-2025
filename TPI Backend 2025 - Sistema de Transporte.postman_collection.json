@@ -1,89 +1,12 @@
 {
 	"info": {
-		"_postman_id": "tpi-backend-2025",
+		"_postman_id": "c0701621-610e-45fa-a321-93e2300688df",
 		"name": "TPI Backend 2025 - Sistema de Transporte",
 		"description": "Colección completa para testing del sistema de gestión de transporte de contenedores.\n\n**Flujo Principal:**\n1. Autenticación con Keycloak (roles: CLIENTE, ADMIN, TRANSPORTISTA, OPERADOR)\n2. Registro de cliente y creación de solicitud\n3. Generación de rutas tentativas con depósitos intermedios\n4. Asignación de ruta y camión\n5. Inicio y finalización de tramos\n6. Seguimiento de solicitud\n7. Cálculo de costo y tiempo final\n\n**Configuración requerida:**\n- Keycloak realm: `transporte-realm`\n- Usuarios creados con roles correspondientes\n- Servicios corriendo en Docker (localhost:8081-8085)\n- OSRM disponible en localhost:5000",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "36673175",
+		"_collection_link": "https://lucaolguin-utn-3740014.postman.co/workspace/My-Workspace~938817da-983e-47b0-81ae-4b2e548b006a/collection/36673175-c0701621-610e-45fa-a321-93e2300688df?action=share&source=collection_link&creator=36673175"
 	},
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{access_token}}",
-				"type": "string"
-			}
-		]
-	},
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					"// Auto-refresh token si está por expirar",
-					"const tokenExpiresAt = pm.environment.get('token_expires_at');",
-					"const now = Date.now();",
-					"",
-					"if (!tokenExpiresAt || now >= tokenExpiresAt) {",
-					"    console.log('Token expired or not set, will be refreshed by Auth requests');",
-					"}"
-				]
-			}
-		}
-	],
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost",
-			"type": "string"
-		},
-		{
-			"key": "api_gateway_port",
-			"value": "9000",
-			"type": "string"
-		},
-		{
-			"key": "keycloak_port",
-			"value": "8088",
-			"type": "string"
-		},
-		{
-			"key": "realm",
-			"value": "transporte-realm",
-			"type": "string"
-		},
-		{
-			"key": "client_id",
-			"value": "transporte-client",
-			"type": "string"
-		},
-		{
-			"key": "access_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "token_expires_at",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "num_solicitud",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "ruta_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "tramo_id",
-			"value": "",
-			"type": "string"
-		}
-	],
 	"item": [
 		{
 			"name": "1. Autenticación",
@@ -100,7 +23,7 @@
 									"    pm.environment.set('access_token', jsonData.access_token);",
 									"    ",
 									"    // Calcular tiempo de expiración",
-									"    const expiresIn = jsonData.expires_in || 300;",
+									"    const expiresIn = jsonData.expires_in || 30000;",
 									"    const expiresAt = Date.now() + (expiresIn * 1000);",
 									"    pm.environment.set('token_expires_at', expiresAt);",
 									"    ",
@@ -109,7 +32,9 @@
 									"    console.error('❌ Error al obtener token');",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -134,31 +59,32 @@
 								},
 								{
 									"key": "client_id",
-									"value": "{{client_id}}",
+									"value": "servicio-cliente",
 									"type": "text"
 								},
 								{
 									"key": "username",
 									"value": "cliente1",
-									"type": "text",
-									"description": "Usuario con rol CLIENTE"
+									"description": "Usuario con rol CLIENTE",
+									"type": "text"
 								},
 								{
 									"key": "password",
-									"value": "password123",
+									"value": "Clave123",
 									"type": "text"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{base_url}}:{{keycloak_port}}/realms/{{realm}}/protocol/openid-connect/token",
+							"raw": "http://localhost:8088/realms/transporte-realm/protocol/openid-connect/token",
+							"protocol": "http",
 							"host": [
-								"{{base_url}}"
+								"localhost"
 							],
-							"port": "{{keycloak_port}}",
+							"port": "8088",
 							"path": [
 								"realms",
-								"{{realm}}",
+								"transporte-realm",
 								"protocol",
 								"openid-connect",
 								"token"
@@ -178,13 +104,15 @@
 									"if (pm.response.code === 200) {",
 									"    const jsonData = pm.response.json();",
 									"    pm.environment.set('access_token', jsonData.access_token);",
-									"    const expiresIn = jsonData.expires_in || 300;",
+									"    const expiresIn = jsonData.expires_in || 30000;",
 									"    const expiresAt = Date.now() + (expiresIn * 1000);",
 									"    pm.environment.set('token_expires_at', expiresAt);",
 									"    console.log('✅ Token ADMIN obtenido');",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -209,17 +137,17 @@
 								},
 								{
 									"key": "client_id",
-									"value": "{{client_id}}",
+									"value": "servicio-cliente",
 									"type": "text"
 								},
 								{
 									"key": "username",
-									"value": "admin",
+									"value": "admin1",
 									"type": "text"
 								},
 								{
 									"key": "password",
-									"value": "admin123",
+									"value": "Clave123",
 									"type": "text"
 								}
 							]
@@ -252,13 +180,15 @@
 									"if (pm.response.code === 200) {",
 									"    const jsonData = pm.response.json();",
 									"    pm.environment.set('access_token', jsonData.access_token);",
-									"    const expiresIn = jsonData.expires_in || 300;",
+									"    const expiresIn = jsonData.expires_in || 30000;",
 									"    const expiresAt = Date.now() + (expiresIn * 1000);",
 									"    pm.environment.set('token_expires_at', expiresAt);",
 									"    console.log('✅ Token TRANSPORTISTA obtenido');",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -283,17 +213,17 @@
 								},
 								{
 									"key": "client_id",
-									"value": "{{client_id}}",
+									"value": "transporte-client",
 									"type": "text"
 								},
 								{
 									"key": "username",
-									"value": "transportista1",
+									"value": "trans1",
 									"type": "text"
 								},
 								{
 									"key": "password",
-									"value": "password123",
+									"value": "Clave123",
 									"type": "text"
 								}
 							]
@@ -323,6 +253,76 @@
 			"name": "2. Gestión de Clientes",
 			"item": [
 				{
+					"name": "Listar clientes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8081/api/v1/clientes",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8081",
+							"path": [
+								"api",
+								"v1",
+								"clientes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener Cliente por ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}:8081/api/v1/clientes/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8081",
+							"path": [
+								"api",
+								"v1",
+								"clientes",
+								"1"
+							]
+						},
+						"description": "Busca cliente por DNI (usado al crear solicitudes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Listar provincias",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Seguimiento de contenedor",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
 					"name": "Registrar Cliente",
 					"event": [
 						{
@@ -333,7 +333,9 @@
 									"    console.log('✅ Cliente registrado exitosamente');",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -343,11 +345,16 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Pérez\",\n  \"dni\": \"38456789\",\n  \"cuit\": \"20-38456789-5\",\n  \"correo\": \"juan.perez@email.com\",\n  \"telefono\": \"+54 9 351 123-4567\",\n  \"ciudadId\": 1\n}"
+							"raw": "{\n  \"nombre\": \"juan\",\n  \"apellido\": \"cespo\",\n  \"dni\": 451382,\n  \"telefono\": 99763,\n  \"mail\": \"heancito@gmail.com\",\n  \"calle\": \"2 de septiembre\",\n  \"altura\": 197,\n  \"idCiudad\": 1\n}"
 						},
 						"url": {
 							"raw": "{{base_url}}:8081/api/v1/clientes/registro",
@@ -367,74 +374,33 @@
 					"response": []
 				},
 				{
-					"name": "Obtener Cliente por DNI",
+					"name": "Editar un cliente",
 					"request": {
-						"method": "GET",
+						"method": "PUT",
 						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"nombre\": \"JOAQUIN\",\r\n  \"apellido\": \"FERNANDEZ\",\r\n  \"dni\": 554466,\r\n  \"telefono\": 458763,\r\n  \"mail\": \"hernandezjoaco@gamil.com\",\r\n  \"calle\": \"Velez sarsfield\",\r\n  \"altura\": 5000,\r\n  \"idCiudad\": 1\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
 						"url": {
-							"raw": "{{base_url}}:8081/api/v1/clientes/solicitud?dni=38456789",
+							"raw": "http://localhost:8081/api/v1/clientes/2",
+							"protocol": "http",
 							"host": [
-								"{{base_url}}"
+								"localhost"
 							],
 							"port": "8081",
 							"path": [
 								"api",
 								"v1",
 								"clientes",
-								"solicitud"
-							],
-							"query": [
-								{
-									"key": "dni",
-									"value": "38456789"
-								}
+								"2"
 							]
-						},
-						"description": "Busca cliente por DNI (usado al crear solicitudes)."
-					},
-					"response": []
-				},
-				{
-					"name": "Listar Todas las Provincias",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}:8081/api/v1/provincias",
-							"host": [
-								"{{base_url}}"
-							],
-							"port": "8081",
-							"path": [
-								"api",
-								"v1",
-								"provincias"
-							]
-						},
-						"description": "Obtiene lista de provincias disponibles."
-					},
-					"response": []
-				},
-				{
-					"name": "Listar Ciudades de una Provincia",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}:8081/api/v1/ciudades/provincia/1",
-							"host": [
-								"{{base_url}}"
-							],
-							"port": "8081",
-							"path": [
-								"api",
-								"v1",
-								"ciudades",
-								"provincia",
-								"1"
-							]
-						},
-						"description": "Ciudades de una provincia específica (usar para obtener IDs)."
+						}
 					},
 					"response": []
 				}
@@ -442,41 +408,24 @@
 			"description": "CRUD de clientes y entidades geográficas (provincias/ciudades)."
 		},
 		{
-			"name": "3. Gestión de Solicitudes",
+			"name": "3. Gestión de Solicitudes (ENVIOS)",
 			"item": [
 				{
-					"name": "Crear Solicitud de Envío",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200 || pm.response.code === 201) {",
-									"    const jsonData = pm.response.json();",
-									"    pm.environment.set('num_solicitud', jsonData.numSolicitud || jsonData.id);",
-									"    console.log('✅ Solicitud creada: ' + pm.environment.get('num_solicitud'));",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
+					"name": "Listar solicitudes",
 					"request": {
-						"method": "POST",
+						"method": "GET",
 						"header": [
 							{
-								"key": "Content-Type",
-								"value": "application/json"
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
 							}
 						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"clienteDni\": \"38456789\",\n  \"contenedorId\": 1,\n  \"depositoOrigenId\": 1,\n  \"depositoDestinoId\": 5,\n  \"fechaRetiroEstimada\": \"2025-12-01T10:00:00\",\n  \"observaciones\": \"Frágil - Manejar con cuidado\"\n}"
-						},
 						"url": {
-							"raw": "{{base_url}}:8082/api/v1/envios",
+							"raw": "http://localhost:8082/api/v1/envios",
+							"protocol": "http",
 							"host": [
-								"{{base_url}}"
+								"localhost"
 							],
 							"port": "8082",
 							"path": [
@@ -484,8 +433,7 @@
 								"v1",
 								"envios"
 							]
-						},
-						"description": "Crea una nueva solicitud de envío.\n\n**Rol requerido:** CLIENTE o ADMIN\n\n**Estado inicial:** PENDIENTE"
+						}
 					},
 					"response": []
 				},
@@ -505,7 +453,9 @@
 									"    }",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -513,7 +463,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}:8082/api/v1/rutas/tentativas/{{num_solicitud}}",
+							"raw": "{{base_url}}:8082/api/v1/rutas/tentativas",
 							"host": [
 								"{{base_url}}"
 							],
@@ -522,11 +472,93 @@
 								"api",
 								"v1",
 								"rutas",
-								"tentativas",
-								"{{num_solicitud}}"
+								"tentativas"
 							]
 						},
 						"description": "Genera 2-3 rutas alternativas usando OSRM con depósitos intermedios opcionales.\n\n**Criterio 5:** Rutas alternativas\n\n**Respuesta esperada:**\n```json\n[\n  {\n    \"id\": 1,\n    \"distanciaTotal\": 450.5,\n    \"tiempoEstimado\": 6.5,\n    \"tramos\": [...],\n    \"depositosIntermedios\": [2]\n  },\n  ...\n]\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar rutas",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Seguimiento de Solicitud",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/envios/{{num_solicitud}}/seguimiento",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"envios",
+								"{{num_solicitud}}",
+								"seguimiento"
+							]
+						},
+						"description": "Consulta el estado actual de una solicitud.\n\n**Criterio 7:** Seguimiento para el cliente\n\n**Respuesta incluye:**\n- Estado actual\n- Ruta asignada\n- Tramos con sus estados (PENDIENTE/EN_PROCESO/FINALIZADO)\n- Ubicación actual del camión\n- Costo estimado y real\n- Tiempo estimado y real"
+					},
+					"response": []
+				},
+				{
+					"name": "Crear Solicitud de Envío",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200 || pm.response.code === 201) {",
+									"    const jsonData = pm.response.json();",
+									"    pm.environment.set('num_solicitud', jsonData.numSolicitud || jsonData.id);",
+									"    console.log('✅ Solicitud creada: ' + pm.environment.get('num_solicitud'));",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dniCliente\": 123456,\n  \"nombreCliente\": \"LUCAAAAA\",\n  \"apellidoCliente\": \"CHAUIIIIII\",\n  \"emailCliente\": \"olgcahui@gamil.com\",\n  \"telefonoCliente\": 546845,\n  \"calleCliente\": \"24 de sept\",\n  \"alturaCliente\": 1234,\n  \"idCiudadCliente\": 1,\n  \"idContenedor\": \"MSKU111111\",\n  \"peso\": 200,\n  \"volumen\": 300,\n  \"origenDireccion\": \"ARGENTINA\",\n  \"origenLatitud\": 0,\n  \"origenLongitud\": 0,\n  \"destinoDireccion\": \"ESPAÑA\",\n  \"destinoLatitud\": 0,\n  \"destinoLongitud\": 0\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}:8082/api/v1/envios",
+							"host": [
+								"{{base_url}}"
+							],
+							"port": "8082",
+							"path": [
+								"api",
+								"v1",
+								"envios"
+							]
+						},
+						"description": "Crea una nueva solicitud de envío.\n\n**Rol requerido:** CLIENTE o ADMIN\n\n**Estado inicial:** PENDIENTE"
 					},
 					"response": []
 				},
@@ -572,29 +604,6 @@
 							]
 						},
 						"description": "Asigna una de las rutas tentativas a la solicitud.\n\n**Rol requerido:** ADMIN\n\n**Estado cambia a:** RUTA_ASIGNADA"
-					},
-					"response": []
-				},
-				{
-					"name": "Seguimiento de Solicitud",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}:8082/api/v1/envios/{{num_solicitud}}/seguimiento",
-							"host": [
-								"{{base_url}}"
-							],
-							"port": "8082",
-							"path": [
-								"api",
-								"v1",
-								"envios",
-								"{{num_solicitud}}",
-								"seguimiento"
-							]
-						},
-						"description": "Consulta el estado actual de una solicitud.\n\n**Criterio 7:** Seguimiento para el cliente\n\n**Respuesta incluye:**\n- Estado actual\n- Ruta asignada\n- Tramos con sus estados (PENDIENTE/EN_PROCESO/FINALIZADO)\n- Ubicación actual del camión\n- Costo estimado y real\n- Tiempo estimado y real"
 					},
 					"response": []
 				},
@@ -667,12 +676,68 @@
 			"name": "4. Gestión de Flota",
 			"item": [
 				{
+					"name": "Listar Depósitos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "*/*",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8085/api/v1/flota/depositos",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"flota",
+								"depositos"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Listar Contenedores",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "*/*",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8085/api/v1/flota/contenedores",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8085",
+							"path": [
+								"api",
+								"v1",
+								"flota",
+								"contenedores"
+							]
+						}
+					},
+					"response": []
+				},
+				{
 					"name": "Listar Camiones Disponibles",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}:8085/api/v1/camiones?disponible=true",
+							"raw": "{{base_url}}:8085/api/v1/flota/camiones?disponible=true",
 							"host": [
 								"{{base_url}}"
 							],
@@ -680,6 +745,7 @@
 							"path": [
 								"api",
 								"v1",
+								"flota",
 								"camiones"
 							],
 							"query": [
@@ -704,7 +770,9 @@
 									"    console.log('✅ Camión asignado al tramo');",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -718,10 +786,10 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"tramoId\": 1,\n  \"patente\": \"AB123CD\"\n}"
+							"raw": "{\n  \"tramoId\": 1\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}:8085/api/v1/camiones/AB123CD/camion-asignado",
+							"raw": "{{base_url}}:8085/api/v1/flota/camiones/AA123BB/camion-asignado",
 							"host": [
 								"{{base_url}}"
 							],
@@ -729,8 +797,9 @@
 							"path": [
 								"api",
 								"v1",
+								"flota",
 								"camiones",
-								"AB123CD",
+								"AA123BB",
 								"camion-asignado"
 							]
 						},
@@ -750,10 +819,10 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"contenedorId\": 1\n}"
+							"raw": ""
 						},
 						"url": {
-							"raw": "{{base_url}}:8085/api/v1/camiones/AB123CD/vincular-contenedor",
+							"raw": "{{base_url}}:8085/api/v1/flota/camiones/AA123BB/vincular-contenedor/MSKU111111",
 							"host": [
 								"{{base_url}}"
 							],
@@ -761,9 +830,11 @@
 							"path": [
 								"api",
 								"v1",
+								"flota",
 								"camiones",
-								"AB123CD",
-								"vincular-contenedor"
+								"AA123BB",
+								"vincular-contenedor",
+								"MSKU111111"
 							]
 						},
 						"description": "Vincula el contenedor al camión asignado."
@@ -776,7 +847,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}:8085/api/v1/camiones/AB123CD/camion-libre",
+							"raw": "{{base_url}}:8085/api/v1/flota/camiones/AA123BB/camion-libre",
 							"host": [
 								"{{base_url}}"
 							],
@@ -784,8 +855,9 @@
 							"path": [
 								"api",
 								"v1",
+								"flota",
 								"camiones",
-								"AB123CD",
+								"AA123BB",
 								"camion-libre"
 							]
 						},
@@ -797,8 +869,24 @@
 			"description": "Gestión de camiones: asignación, vinculación de contenedores, liberación."
 		},
 		{
-			"name": "5. Operatoria Transportista",
+			"name": "5. Operatoria Transportista (ENVIOS)",
 			"item": [
+				{
+					"name": "Listar transportistas",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
+				{
+					"name": "Distancia total tramo",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				},
 				{
 					"name": "Listar Tramos del Transportista",
 					"event": [
@@ -814,19 +902,28 @@
 									"    }",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}:8085/api/v1/transportista/tramos",
+							"raw": "http://localhost:8082/api/v1/transportista/tramos",
+							"protocol": "http",
 							"host": [
-								"{{base_url}}"
+								"localhost"
 							],
-							"port": "8085",
+							"port": "8082",
 							"path": [
 								"api",
 								"v1",
@@ -849,7 +946,9 @@
 									"    console.log('✅ Tramo iniciado - Estado: EN_PROCESO');",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -857,17 +956,17 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}:8085/api/v1/transportista/tramos/{{tramo_id}}/iniciar",
+							"raw": "{{base_url}}:8082/api/v1/transportista/tramos/1/iniciar",
 							"host": [
 								"{{base_url}}"
 							],
-							"port": "8085",
+							"port": "8082",
 							"path": [
 								"api",
 								"v1",
 								"transportista",
 								"tramos",
-								"{{tramo_id}}",
+								"1",
 								"iniciar"
 							]
 						},
@@ -886,7 +985,9 @@
 									"    console.log('✅ Tramo finalizado - Estado: FINALIZADO');",
 									"}"
 								],
-								"type": "text/javascript"
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
 							}
 						}
 					],
@@ -894,11 +995,11 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}:8085/api/v1/transportista/tramos/{{tramo_id}}/finalizar",
+							"raw": "{{base_url}}:8082/api/v1/transportista/tramos/{{tramo_id}}/finalizar",
 							"host": [
 								"{{base_url}}"
 							],
-							"port": "8085",
+							"port": "8082",
 							"path": [
 								"api",
 								"v1",
@@ -919,21 +1020,61 @@
 			"name": "6. Gestión de Tarifas",
 			"item": [
 				{
-					"name": "Obtener Tarifa Base",
+					"name": "Listar combustibles",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}:8083/api/v1/tarifas/base",
+							"raw": "http://localhost:8083/api/v1/tarifas/combustible/Diesel",
+							"protocol": "http",
 							"host": [
-								"{{base_url}}"
+								"localhost"
 							],
 							"port": "8083",
 							"path": [
 								"api",
 								"v1",
 								"tarifas",
-								"base"
+								"combustible",
+								"Diesel"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener Tarifa Base",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8083/api/v1/tarifas/calculo",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8083",
+							"path": [
+								"api",
+								"v1",
+								"tarifas",
+								"calculo"
 							]
 						},
 						"description": "Obtiene las tarifas base activas (por km, por contenedor, etc.)."
@@ -948,14 +1089,19 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "accept",
+								"value": "*/*",
+								"type": "text"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"distanciaKm\": 450.5,\n  \"tipoContenedor\": \"20_PIES\",\n  \"pesoKg\": 15000\n}"
+							"raw": "{\n  \"idSolicitud\": 1,\n  \"consumoCamionLitroKm\": 1,\n  \"tipoCombustible\": \"Diesel\",\n  \"distanciaTotalKm\": 1,\n  \"volumenContenedor\": 1,\n  \"estadias\": [\n    {\n      \"idDeposito\": 1,\n      \"fechaEntrada\": \"2025-11-25\",\n      \"fechaSalida\": \"2025-11-28\"\n    }\n  ],\n  \"tarifaGestion\": 1,\n  \"cantidadTramos\": 1\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}:8083/api/v1/tarifas/calcular",
+							"raw": "{{base_url}}:8083/api/v1/tarifas/calculo",
 							"host": [
 								"{{base_url}}"
 							],
@@ -964,7 +1110,7 @@
 								"api",
 								"v1",
 								"tarifas",
-								"calcular"
+								"calculo"
 							]
 						},
 						"description": "Calcula el costo de un tramo basado en distancia, tipo y peso del contenedor."
@@ -1075,13 +1221,23 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}:5000/",
+							"raw": "http://localhost:5000/route/v1/driving/-64.18105,-31.4135;-60.6985,-32.9471?overview=false",
+							"protocol": "http",
 							"host": [
-								"{{base_url}}"
+								"localhost"
 							],
 							"port": "5000",
 							"path": [
-								""
+								"route",
+								"v1",
+								"driving",
+								"-64.18105,-31.4135;-60.6985,-32.9471"
+							],
+							"query": [
+								{
+									"key": "overview",
+									"value": "false"
+								}
 							]
 						},
 						"description": "Verifica que OSRM esté funcionando correctamente."
@@ -1090,6 +1246,85 @@
 				}
 			],
 			"description": "Endpoints de health check para validar estado de servicios."
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-refresh token si está por expirar",
+					"const tokenExpiresAt = pm.environment.get('token_expires_at');",
+					"const now = Date.now();",
+					"",
+					"if (!tokenExpiresAt || now >= tokenExpiresAt) {",
+					"    console.log('Token expired or not set, will be refreshed by Auth requests');",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost",
+			"type": "string"
+		},
+		{
+			"key": "api_gateway_port",
+			"value": "9000",
+			"type": "string"
+		},
+		{
+			"key": "keycloak_port",
+			"value": "8088",
+			"type": "string"
+		},
+		{
+			"key": "realm",
+			"value": "transporte-realm",
+			"type": "string"
+		},
+		{
+			"key": "client_id",
+			"value": "transporte-client",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "token_expires_at",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "num_solicitud",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "ruta_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "tramo_id",
+			"value": "",
+			"type": "string"
 		}
 	]
 }

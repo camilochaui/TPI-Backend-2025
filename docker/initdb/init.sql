@@ -154,6 +154,9 @@ CREATE INDEX IF NOT EXISTS idx_tramo_estado ON tramo(estado_tramo);
 CREATE INDEX IF NOT EXISTS idx_ubicacion_tipo ON ubicacion(id_tipo_ubicacion);
 
 -- seed data envios
+
+
+
 INSERT INTO tipo_ubicacion (nombre) VALUES ('CLIENTE_ORIGEN'),('DEPOSITO'),('CLIENTE_DESTINO');
 
 -- =====================================
@@ -344,3 +347,88 @@ INSERT INTO tarifagestion (idtarifagestion, costofijotramo) VALUES
 (1, 5000.00);
 
 -- End of init script
+
+-- =====================================
+-- Seed data for ServicioEnvios: solicitudes, ubicaciones, rutas y tramos
+-- Three example solicitudes: each linked to an existing `contenedor` and a `cliente`.
+-- For each solicitud: insert origen/destino ubicaciones, crear ruta y un tramo asociado.
+
+-- Solicitud 1
+INSERT INTO solicitud (id_contenedor_ext, id_cliente_ext, peso, volumen, estado_solicitud, fecha_creacion, costo_estimado, tiempo_estimado)
+VALUES ('MSKU111111', 1, 15000, 50, 'BORRADOR', now(), 25000.00, 'PT12H') RETURNING num_solicitud;
+
+-- Insert ubicaciones para solicitud 1 (origen: cliente, destino: deposito)
+INSERT INTO ubicacion (direccion, latitud, longitud, id_tipo_ubicacion, num_solicitud)
+VALUES
+  ('Av. Corrientes 1234, La Plata', -34.9215, -57.9545, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='CLIENTE_ORIGEN'), currval('solicitud_num_solicitud_seq')),
+  ('Depósito Buenos Aires - Av. Corrientes 1234', -34.6037, -58.3816, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='DEPOSITO'), currval('solicitud_num_solicitud_seq'));
+
+-- Crear ruta para solicitud 1
+INSERT INTO ruta (id_solicitud, cantidad_tramos, cantidad_depositos)
+VALUES (currval('solicitud_num_solicitud_seq'), 1, 1) RETURNING id_ruta;
+
+-- Crear tramo para ruta 1 (usa las ubicaciones insertadas)
+INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, distancia_km_estimada, costo_estimado)
+VALUES (
+  currval('ruta_id_ruta_seq'),
+  1,
+  (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Av. Corrientes 1234, La Plata%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
+  (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Buenos Aires - Av. Corrientes 1234%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
+  'PENDIENTE',
+  60.5,
+  25000.00
+);
+
+-- Solicitud 2
+INSERT INTO solicitud (id_contenedor_ext, id_cliente_ext, peso, volumen, estado_solicitud, fecha_creacion, costo_estimado, tiempo_estimado)
+VALUES ('HLCU222222', 2, 18000, 65, 'EN_TRANSITO', now(), 32000.00, 'PT20H') RETURNING num_solicitud;
+
+-- Insert ubicaciones para solicitud 2 (origen: deposito, destino: cliente)
+INSERT INTO ubicacion (direccion, latitud, longitud, id_tipo_ubicacion, num_solicitud)
+VALUES
+  ('Depósito Córdoba - Calle Falsa 123', -31.4201, -64.1888, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='DEPOSITO'), currval('solicitud_num_solicitud_seq')),
+  ('Bv. Oroño 810, Rosario', -32.9468, -60.6393, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='CLIENTE_DESTINO'), currval('solicitud_num_solicitud_seq'));
+
+-- Crear ruta para solicitud 2
+INSERT INTO ruta (id_solicitud, cantidad_tramos, cantidad_depositos)
+VALUES (currval('solicitud_num_solicitud_seq'), 1, 1) RETURNING id_ruta;
+
+-- Crear tramo para ruta 2
+INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, distancia_km_estimada, costo_estimado)
+VALUES (
+  currval('ruta_id_ruta_seq'),
+  1,
+  (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Córdoba - Calle Falsa 123%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
+  (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Bv. Oroño 810, Rosario%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
+  'INICIADO',
+  370.2,
+  32000.00
+);
+
+-- Solicitud 3
+INSERT INTO solicitud (id_contenedor_ext, id_cliente_ext, peso, volumen, estado_solicitud, fecha_creacion, costo_estimado, tiempo_estimado)
+VALUES ('CMAU333333', 3, 20000, 70, 'ENTREGADA', now() - interval '3 days', 45000.00, 'PT48H') RETURNING num_solicitud;
+
+-- Insert ubicaciones para solicitud 3 (origen: deposito, destino: deposito)
+INSERT INTO ubicacion (direccion, latitud, longitud, id_tipo_ubicacion, num_solicitud)
+VALUES
+  ('Depósito Santa Fe - Av. Pellegrini 2500', -31.6443, -60.7000, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='DEPOSITO'), currval('solicitud_num_solicitud_seq')),
+  ('Depósito Mendoza - Av. San Martín 1456', -32.8895, -68.8458, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='DEPOSITO'), currval('solicitud_num_solicitud_seq'));
+
+-- Crear ruta para solicitud 3
+INSERT INTO ruta (id_solicitud, cantidad_tramos, cantidad_depositos)
+VALUES (currval('solicitud_num_solicitud_seq'), 1, 2) RETURNING id_ruta;
+
+-- Crear tramo para ruta 3
+INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, distancia_km_estimada, costo_estimado)
+VALUES (
+  currval('ruta_id_ruta_seq'),
+  1,
+  (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Santa Fe - Av. Pellegrini 2500%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
+  (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Mendoza - Av. San Martín 1456%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
+  'FINALIZADO',
+  1060.0,
+  45000.00
+);
+
+-- End seed block for ServicioEnvios
