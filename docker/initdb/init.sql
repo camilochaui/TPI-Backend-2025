@@ -118,7 +118,8 @@ CREATE TABLE ubicacion (
   latitud DOUBLE PRECISION NOT NULL,
   longitud DOUBLE PRECISION NOT NULL,
   id_tipo_ubicacion BIGINT NOT NULL REFERENCES tipo_ubicacion(id_tipo_ubicacion),
-  num_solicitud BIGINT REFERENCES solicitud(num_solicitud) ON DELETE CASCADE
+  num_solicitud BIGINT REFERENCES solicitud(num_solicitud) ON DELETE CASCADE,
+  id_deposito_fk INT
 );
 
 CREATE TABLE ruta (
@@ -135,6 +136,7 @@ CREATE TABLE tramo (
   origen_id BIGINT NOT NULL REFERENCES ubicacion(id_ubicacion),
   destino_id BIGINT NOT NULL REFERENCES ubicacion(id_ubicacion),
   estado_tramo VARCHAR(255) NOT NULL,
+    tipo_tramo VARCHAR(50),
   fecha_hora_inicio_estimada TIMESTAMP,
   fecha_hora_fin_estimada TIMESTAMP,
   fecha_hora_inicio_real TIMESTAMP,
@@ -153,11 +155,103 @@ CREATE INDEX IF NOT EXISTS idx_tramo_ruta ON tramo(id_ruta);
 CREATE INDEX IF NOT EXISTS idx_tramo_estado ON tramo(estado_tramo);
 CREATE INDEX IF NOT EXISTS idx_ubicacion_tipo ON ubicacion(id_tipo_ubicacion);
 
+-- =========================
+-- Triggers and functions to maintain integrity and computed fields for rutas/tramos
+-- =========================
+
+-- Validate that origen/destino de un tramo pertenecen a la misma solicitud que la ruta
+CREATE OR REPLACE FUNCTION validate_tramo_ubicacion() RETURNS trigger AS $$
+DECLARE
+  route_solicitud BIGINT;
+  origen_solicitud BIGINT;
+  destino_solicitud BIGINT;
+BEGIN
+  IF (TG_OP = 'DELETE') THEN
+    route_solicitud = (SELECT id_solicitud FROM ruta WHERE id_ruta = OLD.id_ruta);
+    origen_solicitud = (SELECT num_solicitud FROM ubicacion WHERE id_ubicacion = OLD.origen_id);
+    destino_solicitud = (SELECT num_solicitud FROM ubicacion WHERE id_ubicacion = OLD.destino_id);
+  ELSE
+    route_solicitud = (SELECT id_solicitud FROM ruta WHERE id_ruta = NEW.id_ruta);
+    origen_solicitud = (SELECT num_solicitud FROM ubicacion WHERE id_ubicacion = NEW.origen_id);
+    destino_solicitud = (SELECT num_solicitud FROM ubicacion WHERE id_ubicacion = NEW.destino_id);
+  END IF;
+
+  IF route_solicitud IS NULL THEN
+    RAISE EXCEPTION 'Ruta % no encontrada', COALESCE(NEW.id_ruta, OLD.id_ruta);
+  END IF;
+
+  IF origen_solicitud IS NULL OR origen_solicitud <> route_solicitud THEN
+    RAISE EXCEPTION 'Origen de tramo pertenece a solicitud % y no coincide con la solicitud de la ruta %', origen_solicitud, route_solicitud;
+  END IF;
+
+  IF destino_solicitud IS NULL OR destino_solicitud <> route_solicitud THEN
+    RAISE EXCEPTION 'Destino de tramo pertenece a solicitud % y no coincide con la solicitud de la ruta %', destino_solicitud, route_solicitud;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validate_tramo_ubicacion BEFORE INSERT OR UPDATE ON tramo FOR EACH ROW EXECUTE FUNCTION validate_tramo_ubicacion();
+
+-- Compute tipo_tramo automatically based on tipo_ubicacion names of origen/destino
+CREATE OR REPLACE FUNCTION compute_tramo_tipo() RETURNS trigger AS $$
+DECLARE
+  origen_tipo TEXT;
+  destino_tipo TEXT;
+BEGIN
+  SELECT tu.nombre INTO origen_tipo FROM tipo_ubicacion tu JOIN ubicacion u ON tu.id_tipo_ubicacion = u.id_tipo_ubicacion WHERE u.id_ubicacion = NEW.origen_id;
+  SELECT tu.nombre INTO destino_tipo FROM tipo_ubicacion tu JOIN ubicacion u ON tu.id_tipo_ubicacion = u.id_tipo_ubicacion WHERE u.id_ubicacion = NEW.destino_id;
+
+  IF origen_tipo = 'CLIENTE-ORIGEN' AND destino_tipo = 'DEPOSITO' THEN
+    NEW.tipo_tramo = 'ORIGEN-DEPOSITO';
+  ELSIF origen_tipo = 'DEPOSITO' AND destino_tipo = 'DEPOSITO' THEN
+    NEW.tipo_tramo = 'DEPOSITO-DEPOSITO';
+  ELSIF origen_tipo = 'DEPOSITO' AND destino_tipo = 'CLIENTE-DESTINO' THEN
+    NEW.tipo_tramo = 'DEPOSITO-DESTINO';
+  ELSIF origen_tipo = 'CLIENTE-ORIGEN' AND destino_tipo = 'CLIENTE-DESTINO' THEN
+    NEW.tipo_tramo = 'ORIGEN-DESTINO';
+  ELSE
+    NEW.tipo_tramo = NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_compute_tramo_tipo BEFORE INSERT OR UPDATE ON tramo FOR EACH ROW EXECUTE FUNCTION compute_tramo_tipo();
+
+-- Update route counts (cantidad_tramos, cantidad_depositos) after changes in tramo
+CREATE OR REPLACE FUNCTION update_ruta_counts() RETURNS trigger AS $$
+DECLARE
+  route_id BIGINT;
+  tramos_count INT;
+  depositos_count INT;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    route_id = OLD.id_ruta;
+  ELSE
+    route_id = NEW.id_ruta;
+  END IF;
+
+  SELECT COUNT(*) INTO tramos_count FROM tramo WHERE id_ruta = route_id;
+  SELECT COUNT(DISTINCT u.id_ubicacion) INTO depositos_count
+    FROM tramo t JOIN ubicacion u ON u.id_ubicacion = t.origen_id OR u.id_ubicacion = t.destino_id
+    WHERE t.id_ruta = route_id AND u.id_tipo_ubicacion = (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre = 'DEPOSITO');
+
+  UPDATE ruta SET cantidad_tramos = tramos_count, cantidad_depositos = depositos_count WHERE id_ruta = route_id;
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_update_ruta_counts AFTER INSERT OR UPDATE OR DELETE ON tramo FOR EACH ROW EXECUTE FUNCTION update_ruta_counts();
+
 -- seed data envios
 
 
 
-INSERT INTO tipo_ubicacion (nombre) VALUES ('CLIENTE_ORIGEN'),('DEPOSITO'),('CLIENTE_DESTINO');
+INSERT INTO tipo_ubicacion (nombre) VALUES ('CLIENTE-ORIGEN'),('DEPOSITO'),('CLIENTE-DESTINO');
 
 -- =====================================
 -- ServicioFlota schema + data
@@ -208,7 +302,7 @@ CREATE TABLE contenedor (
   id_contenedor VARCHAR(255) PRIMARY KEY,
   peso INT,
   volumen INT,
-  id_cliente_ext INT,
+  id_cliente_ext BIGINT,
   id_deposito_fk INT,
   id_camion_fk VARCHAR(255),
   FOREIGN KEY (id_deposito_fk) REFERENCES deposito(id_deposito),
@@ -280,6 +374,24 @@ INSERT INTO cambio_estado (fecha_inicio, fecha_fin, id_estado_fk, id_contenedor_
 ('2024-04-20', '2024-04-25', 1, 'CMAU333333'),
 ('2024-04-25', '2024-05-05', 2, 'CMAU333333'),
 ('2024-05-05', NULL, 3, 'CMAU333333');
+
+-- After Flota tables exist, add foreign keys that reference those tables from ServicioEnvios
+-- vincular ubicacion.id_deposito_fk -> deposito(id_deposito)
+ALTER TABLE ubicacion
+  ADD CONSTRAINT fk_ubicacion_deposito FOREIGN KEY (id_deposito_fk) REFERENCES deposito(id_deposito);
+
+-- vincular tramo.patente_camion_ext -> camion(patente)
+ALTER TABLE tramo
+  ADD CONSTRAINT fk_tramo_patente_camion FOREIGN KEY (patente_camion_ext) REFERENCES camion(patente);
+
+-- Ensure check constraint on tramo.tipo_tramo exists (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tramo_tipo_tramo_check') THEN
+    EXECUTE 'ALTER TABLE tramo ADD CONSTRAINT tramo_tipo_tramo_check CHECK (tipo_tramo IN (''ORIGEN-DEPOSITO'',''DEPOSITO-DEPOSITO'',''DEPOSITO-DESTINO'',''ORIGEN-DESTINO'') AND tipo_tramo IS NOT NULL)';
+  END IF;
+END
+$$;
 
 -- =====================================
 -- ServicioTarifa schema + data
@@ -360,7 +472,7 @@ VALUES ('MSKU111111', 1, 15000, 50, 'BORRADOR', now(), 25000.00, 'PT12H') RETURN
 -- Insert ubicaciones para solicitud 1 (origen: cliente, destino: deposito)
 INSERT INTO ubicacion (direccion, latitud, longitud, id_tipo_ubicacion, num_solicitud)
 VALUES
-  ('Av. Corrientes 1234, La Plata', -34.9215, -57.9545, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='CLIENTE_ORIGEN'), currval('solicitud_num_solicitud_seq')),
+  ('Av. Corrientes 1234, La Plata', -34.9215, -57.9545, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='CLIENTE-ORIGEN'), currval('solicitud_num_solicitud_seq')),
   ('Depósito Buenos Aires - Av. Corrientes 1234', -34.6037, -58.3816, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='DEPOSITO'), currval('solicitud_num_solicitud_seq'));
 
 -- Crear ruta para solicitud 1
@@ -368,13 +480,14 @@ INSERT INTO ruta (id_solicitud, cantidad_tramos, cantidad_depositos)
 VALUES (currval('solicitud_num_solicitud_seq'), 1, 1) RETURNING id_ruta;
 
 -- Crear tramo para ruta 1 (usa las ubicaciones insertadas)
-INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, distancia_km_estimada, costo_estimado)
+INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, tipo_tramo, distancia_km_estimada, costo_estimado)
 VALUES (
   currval('ruta_id_ruta_seq'),
   1,
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Av. Corrientes 1234, La Plata%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Buenos Aires - Av. Corrientes 1234%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   'PENDIENTE',
+  'ORIGEN-DEPOSITO',
   60.5,
   25000.00
 );
@@ -387,20 +500,21 @@ VALUES ('HLCU222222', 2, 18000, 65, 'EN_TRANSITO', now(), 32000.00, 'PT20H') RET
 INSERT INTO ubicacion (direccion, latitud, longitud, id_tipo_ubicacion, num_solicitud)
 VALUES
   ('Depósito Córdoba - Calle Falsa 123', -31.4201, -64.1888, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='DEPOSITO'), currval('solicitud_num_solicitud_seq')),
-  ('Bv. Oroño 810, Rosario', -32.9468, -60.6393, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='CLIENTE_DESTINO'), currval('solicitud_num_solicitud_seq'));
+  ('Bv. Oroño 810, Rosario', -32.9468, -60.6393, (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre='CLIENTE-DESTINO'), currval('solicitud_num_solicitud_seq'));
 
 -- Crear ruta para solicitud 2
 INSERT INTO ruta (id_solicitud, cantidad_tramos, cantidad_depositos)
 VALUES (currval('solicitud_num_solicitud_seq'), 1, 1) RETURNING id_ruta;
 
 -- Crear tramo para ruta 2
-INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, distancia_km_estimada, costo_estimado)
+INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, tipo_tramo, distancia_km_estimada, costo_estimado)
 VALUES (
   currval('ruta_id_ruta_seq'),
   1,
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Córdoba - Calle Falsa 123%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Bv. Oroño 810, Rosario%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   'INICIADO',
+  'DEPOSITO-DESTINO',
   370.2,
   32000.00
 );
@@ -420,15 +534,33 @@ INSERT INTO ruta (id_solicitud, cantidad_tramos, cantidad_depositos)
 VALUES (currval('solicitud_num_solicitud_seq'), 1, 2) RETURNING id_ruta;
 
 -- Crear tramo para ruta 3
-INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, distancia_km_estimada, costo_estimado)
+INSERT INTO tramo (id_ruta, orden, origen_id, destino_id, estado_tramo, tipo_tramo, distancia_km_estimada, costo_estimado)
 VALUES (
   currval('ruta_id_ruta_seq'),
   1,
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Santa Fe - Av. Pellegrini 2500%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Mendoza - Av. San Martín 1456%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   'FINALIZADO',
+  'DEPOSITO-DEPOSITO',
   1060.0,
   45000.00
 );
 
 -- End seed block for ServicioEnvios
+
+-- Mapear ubicaciones de tipo DEPOSITO al id_deposito correspondiente (si coincide el nombre)
+UPDATE ubicacion u
+SET id_deposito_fk = d.id_deposito
+FROM deposito d
+WHERE u.id_tipo_ubicacion = (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre = 'DEPOSITO')
+  AND u.direccion LIKE d.nombre || '%';
+
+-- Recalcular contadores de rutas (cantidad_tramos, cantidad_depositos) para asegurar coherencia
+UPDATE ruta
+SET cantidad_tramos = COALESCE((SELECT COUNT(*) FROM tramo t WHERE t.id_ruta = ruta.id_ruta), 0),
+    cantidad_depositos = COALESCE((
+      SELECT COUNT(DISTINCT u.id_ubicacion)
+      FROM tramo t JOIN ubicacion u ON (u.id_ubicacion = t.origen_id OR u.id_ubicacion = t.destino_id)
+      WHERE t.id_ruta = ruta.id_ruta AND u.id_tipo_ubicacion = (SELECT id_tipo_ubicacion FROM tipo_ubicacion WHERE nombre = 'DEPOSITO')
+    ), 0);
+
