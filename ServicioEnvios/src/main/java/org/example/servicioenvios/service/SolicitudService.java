@@ -129,8 +129,17 @@ public class SolicitudService {
                 .build();
         tramo = tramoRepository.save(tramo);
 
-        rutaNueva.setTramos(List.of(tramo));
-        rutaRepository.save(rutaNueva);
+                // Usar lista modificable para evitar UnsupportedOperationException de Hibernate (List.of crea lista inmutable)
+                if (rutaNueva.getTramos() == null) {
+                        rutaNueva.setTramos(new ArrayList<>());
+                }
+                rutaNueva.getTramos().clear(); // asegurar estado consistente si viene con elementos previos
+                rutaNueva.getTramos().add(tramo);
+                rutaRepository.save(rutaNueva);
+
+        // Sincronizar lado inverso de la relación one-to-one para que getRuta() no sea null en la entidad Solicitud.
+        solicitudGuardada.setRuta(rutaNueva);
+        solicitudRepository.save(solicitudGuardada);
 
         // 7. Forzar recarga de solicitud con ruta y tramos (use findById y acceder a tramos para inicializar LAZY)
         Solicitud solicitudFinal = solicitudRepository.findById(solicitudGuardada.getNumSolicitud())
@@ -175,7 +184,8 @@ public class SolicitudService {
             Solicitud solicitud, // <-- Acepta la Solicitud
             String direccion, Double latitud, Double longitud, String tipoNombre) {
 
-        TipoUbicacion tipo = tipoUbicacionRepository.findByNombre(tipoNombre)
+        String tipoNombreDb = tipoNombre != null ? tipoNombre.replace("-", "_") : null;
+        TipoUbicacion tipo = tipoUbicacionRepository.findByNombre(tipoNombreDb)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "Tipo de ubicación no encontrado: " + tipoNombre));
 
