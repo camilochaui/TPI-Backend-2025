@@ -64,44 +64,30 @@ public class SolicitudService {
     public SolicitudResponseDTO registrarNuevaSolicitud(SolicitudRequestDTO dto) {
         log.info("Iniciando registro de solicitud para contenedor {}", dto.getIdContenedor());
 
-        // 1. Validar que el contenedor no esté ya en una solicitud activa
+        // 1. Validar contenedor
         if (solicitudRepository.findByIdContenedorExt(dto.getIdContenedor()).isPresent()) {
-            log.warn("El contenedor {} ya tiene una solicitud existente.", dto.getIdContenedor());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El contenedor ya posee una solicitud activa");
         }
 
-        // 2. Orquestación: Llamar a ServicioCliente
+        // 2. Registrar/obtener cliente
         ClienteRegistroRequestDTO clienteRequest = mapToClienteRegistroRequest(dto);
         ClienteInternoResponseDTO clienteRegistrado;
-
         try {
-            log.info("Llamando a ServicioCliente para registrar/obtener DNI {}", clienteRequest.getDni());
             clienteRegistrado = clienteFeignClient.registrarOObtenerCliente(clienteRequest);
-            log.info("Cliente obtenido/registrado con ID: {}", clienteRegistrado.getIdCliente());
         } catch (Exception e) {
-            log.error("Error al comunicarse con ServicioCliente: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "No se pudo validar al cliente, el servicio no está disponible.");
         }
 
-        // 3. Crear Contenedor en ServicioFlota
+        // 3. Crear contenedor en ServicioFlota
         ContenedorResponseDTO contenedorCreado;
         try {
-            log.info("Llamando a ServicioFlota para crear contenedor (P: {}, V: {})", dto.getPeso(), dto.getVolumen());
-
-            contenedorRequestDTO contenedorRequest = mapToContenedorCreacionRequest(dto, clienteRegistrado.getIdCliente());
-
-            contenedorCreado = flotaFeignClient.crearContenedor(contenedorRequest);
-
-            log.info("Contenedor creado exitosamente con ID: {}", contenedorCreado.getIdContenedor());
-
+            contenedorCreado = flotaFeignClient.crearContenedor(
+                    mapToContenedorCreacionRequest(dto, clienteRegistrado.getIdCliente()));
         } catch (Exception e) {
-            log.error("Error al comunicarse con ServicioFlota para crear contenedor: {}", e.getMessage());
-
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "No se pudo crear el contenedor, el servicio de Flota no está disponible.");
         }
-
 
         // 4. Crear solicitud
         Solicitud nuevaSolicitud = Solicitud.builder()
@@ -114,48 +100,75 @@ public class SolicitudService {
                 .build();
 
         Solicitud solicitudGuardada = solicitudRepository.save(nuevaSolicitud);
-        log.info("Solicitud creada exitosamente con ID: {}", solicitudGuardada.getNumSolicitud());
 
+        // 5. Crear ubicaciones
+        Ubicacion origen = crearUbicacion(solicitudGuardada, dto.getOrigenDireccion(),
+                dto.getOrigenLatitud(), dto.getOrigenLongitud(), "CLIENTE-ORIGEN");
+        Ubicacion destino = crearUbicacion(solicitudGuardada, dto.getDestinoDireccion(),
+                dto.getDestinoLatitud(), dto.getDestinoLongitud(), "CLIENTE-DESTINO");
 
-        // 5. Crear ubicaciones (Origen y Destino)
-        Ubicacion origen = crearUbicacion(
-                solicitudGuardada,
-                dto.getOrigenDireccion(),
-                dto.getOrigenLatitud(),
-                dto.getOrigenLongitud(),
-            "CLIENTE-ORIGEN"
-        );
+        // 6. Crear ruta y tramo
+        Ruta rutaNueva = Ruta.builder()
+                .solicitud(solicitudGuardada)
+                .cantidadTramos(1)
+                .cantidadDepositos(0)
+                .build();
+        rutaNueva = rutaRepository.save(rutaNueva);
 
-        Ubicacion destino = crearUbicacion(
-                solicitudGuardada,
-                dto.getDestinoDireccion(),
-                dto.getDestinoLatitud(),
-                dto.getDestinoLongitud(),
-            "CLIENTE-DESTINO"
-        );
+        double distanciaKm = calcularDistanciaKm(origen.getLatitud(), origen.getLongitud(),
+                destino.getLatitud(), destino.getLongitud());
 
-        // Retornamos el DTO de la solicitud (que ahora tiene el ID)
-        Solicitud solicitudFinal = solicitudRepository.save(solicitudGuardada);
+        Tramo tramo = Tramo.builder()
+                .ruta(rutaNueva)
+                .orden(1)
+                .origen(origen)
+                .destino(destino)
+                .estadoTramo(EstadoTramo.PENDIENTE)
+                .distanciaKmEstimada(distanciaKm)
+                .costoEstimado(0.0)
+                .build();
+        tramo = tramoRepository.save(tramo);
 
+        rutaNueva.setTramos(List.of(tramo));
+        rutaRepository.save(rutaNueva);
 
-        try {
-            CotizacionResponseDTO cotizacion = calcularCostosService.calcularCostoSolicitud(solicitudFinal);
-
-            // Actualizar solicitud con costos calculados
-            solicitudFinal.setCostoEstimado(cotizacion.getCostoTotal());
-            solicitudFinal.setTiempoEstimado(calcularTiempoEstimado(solicitudFinal));
-
-            solicitudRepository.save(solicitudFinal);
-
-        } catch (Exception e) {
-            log.warn("No se pudieron calcular costos para solicitud {}: {}",
-                    solicitudFinal.getNumSolicitud(), e.getMessage());
-            // Continuar sin costos calculados
+        // 7. Forzar recarga de solicitud con ruta y tramos (use findById y acceder a tramos para inicializar LAZY)
+        Solicitud solicitudFinal = solicitudRepository.findById(solicitudGuardada.getNumSolicitud())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Solicitud no encontrada después de crear ruta"));
+        // Si las relaciones son LAZY, forzamos su inicialización accediendo a la lista
+        if (solicitudFinal.getRuta() != null && solicitudFinal.getRuta().getTramos() != null) {
+            solicitudFinal.getRuta().getTramos().size();
         }
 
+        // 8. Calcular costos y tiempo estimado
+        try {
+            CotizacionResponseDTO cotizacion = calcularCostosService.calcularCostoSolicitud(solicitudFinal);
+            solicitudFinal.setCostoEstimado(cotizacion.getCostoTotal());
+            solicitudFinal.setTiempoEstimado(calcularTiempoEstimado(solicitudFinal));
+            solicitudRepository.save(solicitudFinal);
+        } catch (Exception e) {
+            log.warn("No se pudieron calcular costos para solicitud {}: {}", solicitudFinal.getNumSolicitud(),
+                    e.getMessage());
+        }
+
+        // 9. Mapear a DTO de respuesta
         SolicitudResponseDTO responseDTO = mapToSolicitudResponse(solicitudFinal);
         responseDTO.setCliente(clienteRegistrado);
+
         return responseDTO;
+    }
+
+    private double calcularDistanciaKm(double lat1, double lon1, double lat2, double lon2) {
+        // Haversine formula
+        final int R = 6371; // Earth radius in km
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                        * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 
     private Ubicacion crearUbicacion(
