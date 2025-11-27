@@ -123,7 +123,7 @@ public class SolicitudService {
                 dto.getOrigenDireccion(),
                 dto.getOrigenLatitud(),
                 dto.getOrigenLongitud(),
-                "CLIENTE_ORIGEN"
+            "CLIENTE-ORIGEN"
         );
 
         Ubicacion destino = crearUbicacion(
@@ -131,7 +131,7 @@ public class SolicitudService {
                 dto.getDestinoDireccion(),
                 dto.getDestinoLatitud(),
                 dto.getDestinoLongitud(),
-                "CLIENTE_DESTINO"
+            "CLIENTE-DESTINO"
         );
 
         // Retornamos el DTO de la solicitud (que ahora tiene el ID)

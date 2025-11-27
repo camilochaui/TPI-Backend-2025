@@ -45,7 +45,7 @@ public class SolicitudController {
             @ApiResponse(responseCode = "201", description = "Solicitud creada exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos inválidos en la solicitud")
     })
-    @PreAuthorize("hasAnyRole('CLIENTE','ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENTE','ADMINISTRADOR')")
     public ResponseEntity<SolicitudResponseDTO> registrarNuevaSolicitud(
             @Valid @RequestBody SolicitudRequestDTO dto) {
         log.info("Recibida nueva solicitud de envío para contenedor {}", dto.getIdContenedor());
@@ -60,7 +60,7 @@ public class SolicitudController {
     }
 
     @GetMapping("/{idContenedor}/seguimiento")
-    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMINISTRADOR')")
     public ResponseEntity<SeguimientoDTO> obtenerSeguimiento(
             @PathVariable String idContenedor) {
         log.info("Recibida consulta de seguimiento interna para contenedor {}", idContenedor);
@@ -87,7 +87,7 @@ public class SolicitudController {
 
     @Operation(summary = "Obtener solicitud por ID")
     @GetMapping("/{numSolicitud}")
-    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMINISTRADOR')")
     public ResponseEntity<SolicitudResponseDTO> obtenerSolicitud(@PathVariable Long numSolicitud) {
         log.info("Consultando solicitud ID: {}", numSolicitud);
         SolicitudResponseDTO solicitud = solicitudService.obtenerSolicitudPorId(numSolicitud);
@@ -113,7 +113,7 @@ public class SolicitudController {
             @ApiResponse(responseCode = "200", description = "Costo calculado exitosamente"),
             @ApiResponse(responseCode = "404", description = "Solicitud no encontrada")
     })
-    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMINISTRADOR')")
 
     public ResponseEntity<CotizacionResponseDTO> calcularCostoSolicitud(@PathVariable Long numSolicitud) {
         log.info("Calculando costo para solicitud {}", numSolicitud);
@@ -168,7 +168,7 @@ public class SolicitudController {
             @ApiResponse(responseCode = "404", description = "Solicitud no encontrada"),
             @ApiResponse(responseCode = "400", description = "Solicitud no puede finalizarse (tramos incompletos)")
     })
-    @PreAuthorize("hasAnyRole('ADMIN', 'OPERADOR')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR')")
     public ResponseEntity<SolicitudResponseDTO> finalizarSolicitud(@PathVariable Long numSolicitud) {
         log.info("Finalizando solicitud {}", numSolicitud);
         try {

@@ -2,6 +2,10 @@ package org.example.servicioenvios.config;
 
 import feign.RequestInterceptor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceOAuth2AuthorizedClientManager;
@@ -33,6 +37,19 @@ public class FeignOAuth2Config {
     @Bean
     public RequestInterceptor oauth2FeignRequestInterceptor(OAuth2AuthorizedClientManager manager) {
         return template -> {
+            // Primero intentar reenviar el token entrante (token relay)
+            try {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth instanceof JwtAuthenticationToken) {
+                    Jwt token = ((JwtAuthenticationToken) auth).getToken();
+                    if (token != null && token.getTokenValue() != null) {
+                        template.header("Authorization", "Bearer " + token.getTokenValue());
+                        return;
+                    }
+                }
+            } catch (Exception ex) {
+                // continuar con client_credentials si no hay token entrante
+            }
             OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
                     .withClientRegistrationId("servicio-envios-client") // debe coincidir con application.yml
                     .principal("servicio-envios-feign") // usuario técnico cualquiera

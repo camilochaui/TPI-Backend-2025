@@ -17,13 +17,13 @@ import java.util.List;
 import java.util.Map;
 
 // Asociado con los:
-//  Consultar rutas tentativas con todos los tramos sugeridos y el tiempo y costo estimados. (Operador / Administrador)
+//  Consultar rutas tentativas con todos los tramos sugeridos y el tiempo y costo estimados. ( Administrador)
 //  Seleccionar una ruta tentativa para asignarla a la solicitud. (Administrador)
 
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/rutas")
-@Tag(name = "Gestión de Rutas (Admin)", description = "Endpoints para consultar y asignar rutas a solicitudes")
+@Tag(name = "Gestión de Rutas (ADMINISTRADOR)", description = "Endpoints para consultar y asignar rutas a solicitudes")
 public class RutaController {
 
         private final RutaService rutaService;
