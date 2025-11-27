@@ -23,7 +23,10 @@ public class ContenedorService {
         return contenedorRepository.findById(id);
     }
 
-    public List<Contenedor> getAllContenedores(String estado, Integer depositoId) {
+    public List<Contenedor> getAllContenedores(String estado, Integer depositoId, Boolean pendientes) {
+        if (Boolean.TRUE.equals(pendientes)) {
+            return contenedorRepository.findContenedoresPendientes(depositoId);
+        }
         return contenedorRepository.findContenedoresByFiltros(estado, depositoId);
     }
 }

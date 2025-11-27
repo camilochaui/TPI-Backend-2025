@@ -23,4 +23,17 @@ public interface ContenedorRepository extends JpaRepository<Contenedor, String> 
         List<Contenedor> findContenedoresByFiltros(
                         @Param("estado") String estado,
                         @Param("depositoId") Integer depositoId);
+
+        @Query("SELECT c FROM Contenedor c " +
+                        "LEFT JOIN c.deposito d " +
+                        "WHERE (:depositoId IS NULL OR d.idDeposito = :depositoId) " +
+                        "AND (c.idContenedor NOT IN ( " +
+                        "  SELECT ce.contenedor.idContenedor " +
+                        "  FROM CambioEstado ce " +
+                        "  WHERE ce.estado.nombre = 'Entregado' AND ce.fechaFin IS NULL " +
+                        ") OR NOT EXISTS ( " +
+                        "  SELECT 1 FROM CambioEstado ce2 " +
+                        "  WHERE ce2.contenedor.idContenedor = c.idContenedor " +
+                        "))")
+        List<Contenedor> findContenedoresPendientes(@Param("depositoId") Integer depositoId);
 }
