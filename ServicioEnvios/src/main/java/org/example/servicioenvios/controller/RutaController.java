@@ -52,15 +52,14 @@ public class RutaController {
                         @ApiResponse(responseCode = "404", description = "Solicitud no encontrada"),
                         @ApiResponse(responseCode = "400", description = "Datos inválidos")
         })
-        @PostMapping("/asignacion/{numSolicitud}")
+        @PostMapping("/asignacion/{numSolicitud}/{rutaId}")
         public ResponseEntity<SolicitudResponseDTO> seleccionarRuta(
                         @PathVariable Long numSolicitud,
-                        @RequestBody RutaTentativaDTO rutaSeleccionada) {
+                        @PathVariable Long rutaId) {
 
-                log.info("Asignando ruta '{}' a solicitud {}",
-                                rutaSeleccionada.getDescripcion(), numSolicitud);
+                log.info("Asignando ruta {} a solicitud {}", rutaId, numSolicitud);
 
-                SolicitudResponseDTO solicitudActualizada = rutaService.seleccionarRuta(numSolicitud, rutaSeleccionada);
+                SolicitudResponseDTO solicitudActualizada = rutaService.seleccionarRuta(numSolicitud, rutaId);
 
                 return ResponseEntity.ok(solicitudActualizada);
         }

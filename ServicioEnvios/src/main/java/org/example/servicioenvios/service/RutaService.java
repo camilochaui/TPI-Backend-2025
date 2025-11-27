@@ -69,14 +69,15 @@ public class RutaService {
 
 
                 // Obtener origen y destino desde las ubicaciones de la solicitud
+        // Los tipos en DB usan guión bajo (CLIENTE_ORIGEN, CLIENTE_DESTINO)
         Ubicacion origen = solicitud.getUbicaciones().stream()
-                .filter(u -> "CLIENTE-ORIGEN".equals(u.getTipo().getNombre()))
+                .filter(u -> "CLIENTE_ORIGEN".equals(u.getTipo().getNombre()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "La solicitud no tiene una ubicación de ORIGEN definida."));
 
         Ubicacion destino = solicitud.getUbicaciones().stream()
-                .filter(u -> "CLIENTE-DESTINO".equals(u.getTipo().getNombre()))
+                .filter(u -> "CLIENTE_DESTINO".equals(u.getTipo().getNombre()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "La solicitud no tiene una ubicación de DESTINO definida."));
@@ -135,7 +136,7 @@ public class RutaService {
     }
 
     @Transactional
-    public SolicitudResponseDTO seleccionarRuta(Long numSolicitud, RutaTentativaDTO rutaSeleccionada) {
+    public SolicitudResponseDTO seleccionarRuta(Long numSolicitud, Long rutaId) {
         Solicitud solicitud = findSolicitud(numSolicitud);
 
         // Validar estado de la solicitud
@@ -144,56 +145,36 @@ public class RutaService {
                     "Solo se pueden asignar rutas a solicitudes en estado BORRADOR");
         }
 
-        // Limpiar ruta anterior
-        Ruta rutaAntigua = solicitud.getRuta();
-        if (rutaAntigua != null) {
-            tramoRepository.deleteAll(rutaAntigua.getTramos());
-            rutaRepository.delete(rutaAntigua);
+        // Buscar la ruta a asignar
+        Ruta rutaSeleccionada = rutaRepository.findById(rutaId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No se encontró la ruta con ID " + rutaId));
+
+        // Validar que la ruta pertenece a la solicitud
+        if (!rutaSeleccionada.getSolicitud().getNumSolicitud().equals(numSolicitud)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La ruta " + rutaId + " no pertenece a la solicitud " + numSolicitud);
         }
 
-        // Crear nueva ruta
-        Ruta nuevaRuta = Ruta.builder()
-                .solicitud(solicitud)
-                .cantidadTramos(rutaSeleccionada.getTramos().size())
-                .cantidadDepositos(calcularCantidadDepositos(rutaSeleccionada))
-                .tramos(new ArrayList<>())
-                .build();
-        Ruta rutaGuardada = rutaRepository.save(nuevaRuta);
-
-        // Crear tramos
-        List<Tramo> nuevosTramos = new ArrayList<>();
-        AtomicInteger orden = new AtomicInteger(1);
-
-        for (TramoResponseDTO tramoDTO : rutaSeleccionada.getTramos()) {
-            Ubicacion origen = obtenerOCrearUbicacion(tramoDTO.getOrigen());
-            Ubicacion destino = obtenerOCrearUbicacion(tramoDTO.getDestino());
-
-            Tramo tramo = Tramo.builder()
-                    .ruta(rutaGuardada)
-                    .orden(orden.getAndIncrement())
-                    .origen(origen)
-                    .destino(destino)
-                    .distanciaKmEstimada(tramoDTO.getDistanciaKmEstimada())
-                    .costoEstimado(tramoDTO.getCostoEstimado())
-                    .costoEstadiaDeposito(tramoDTO.getCostoEstadiaDeposito())
-                    .estadoTramo(EstadoTramo.PENDIENTE)
-                    .fechaHoraInicioEstimada(LocalDateTime.now().plusDays(orden.get()))
-                    .fechaHoraFinEstimada(LocalDateTime.now().plusDays(orden.get() + 1))
-                    .build();
-            nuevosTramos.add(tramo);
-        }
-        tramoRepository.saveAll(nuevosTramos);
-        rutaGuardada.setTramos(nuevosTramos);
-
-        // Actualizar solicitud
-        solicitud.setRuta(rutaGuardada);
-        solicitud.setCostoEstimado(rutaSeleccionada.getCostoTotalEstimado());
-        solicitud.setTiempoEstimado(calcularTiempoEstimado(nuevosTramos));
+        // Actualizar solicitud con la ruta seleccionada
+        solicitud.setRuta(rutaSeleccionada);
+        
+        // Calcular costos y tiempos desde los tramos de la ruta
+        Double costoTotal = rutaSeleccionada.getTramos().stream()
+                .mapToDouble(tramo -> {
+                    double costo = tramo.getCostoEstimado() != null ? tramo.getCostoEstimado() : 0.0;
+                    double estadiaDeposito = tramo.getCostoEstadiaDeposito() != null ? tramo.getCostoEstadiaDeposito() : 0.0;
+                    return costo + estadiaDeposito;
+                })
+                .sum();
+        
+        solicitud.setCostoEstimado(costoTotal);
+        solicitud.setTiempoEstimado(calcularTiempoEstimado(rutaSeleccionada.getTramos()));
         solicitud.setEstadoSolicitud(EstadoSolicitud.PROGRAMADA);
 
         Solicitud solicitudActualizada = solicitudRepository.save(solicitud);
 
-        log.info("Ruta asignada exitosamente a solicitud {}", numSolicitud);
+        log.info("Ruta {} asignada exitosamente a solicitud {}", rutaId, numSolicitud);
         return solicitudService.mapToSolicitudResponse(solicitudActualizada);
     }
 
