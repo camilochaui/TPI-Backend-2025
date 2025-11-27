@@ -1,6 +1,5 @@
 package org.example.servicioenvios.feign;
 
-//import org.example.servicioenvios.config.FeignClientConfig;
 import org.example.servicioenvios.dto.feign.CamionDTO;
 import org.example.servicioenvios.dto.feign.DepositoDTO;
 import org.example.servicioenvios.dto.feign.TransportistaDTO;
@@ -13,13 +12,13 @@ import java.util.List;
 import java.util.Map;
 
 // Cliente Feign para comunicarse con el Servicio de Flota
-
 @FeignClient(
         name = "servicio-flota",
         url = "${servicio.flota.url}",
-        path = "/api/v1/flota"
-        // configuration = FeignClientConfig.class
+        path = "/api/v1/flota",
+        configuration = FeignSecurityConfig.class
 )
+
 public interface FlotaFeignClient {
 
     // CAMIONES

@@ -34,20 +34,19 @@ spring:
 
   security:
     oauth2:
-      client:
-        registration:
-          servicio-envios-client:
-            provider: keycloak
-            client-id: servicio-envios
-            client-secret: ${SERVICIO_ENVIOS_CLIENT_SECRET:}
-            authorization-grant-type: client_credentials
-            scope: openid
-        provider:
-          keycloak:
-            issuer-uri: "http://keycloak:8080/realms/transporte-realm"
       resourceserver:
         jwt:
           issuer-uri: "http://keycloak:8080/realms/transporte-realm"
+      client:
+        registration:
+          servicio-envios-client:
+            client-id: servicio-envios
+            client-secret: ${SERVICIO_ENVIOS_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            scope: openid
+        provider:
+          servicio-envios-client:
+            issuer-uri: "http://keycloak:8080/realms/transporte-realm"
 
 servicio:
   tarifas:
