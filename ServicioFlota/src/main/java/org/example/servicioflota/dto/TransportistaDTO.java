@@ -9,7 +9,7 @@ public class TransportistaDTO {
     private String dni;
     private String telefono;
     private boolean disponibilidad;
-    private String camionPatente;
+    private List<String> camionesPatentes;
 
     // Getters y Setters
     public Integer getIdTransportista() { return idTransportista; }
@@ -24,6 +24,6 @@ public class TransportistaDTO {
     public void setTelefono(String telefono) { this.telefono = telefono; }
     public boolean isDisponibilidad() { return disponibilidad; }
     public void setDisponibilidad(boolean disponibilidad) { this.disponibilidad = disponibilidad; }
-    public String getCamionPatente() { return camionPatente; }
-    public void setCamionPatente(String camionPatente) { this.camionPatente = camionPatente; }
+    public List<String> getCamionesPatentes() { return camionesPatentes; }
+    public void setCamionesPatentes(List<String> camionesPatentes) { this.camionesPatentes = camionesPatentes; }
 }

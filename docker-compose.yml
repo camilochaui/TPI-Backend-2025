@@ -36,11 +36,11 @@ services:
         if [ ! -f /data/argentina-251110.osrm ]; then
           echo '--- OSRM data not found, generating... ---';
           # 1. Extrae usando el .pbf de /data
-          osrm-extract -p /opt/car.lua /data/argentina-251110.osm.pbf &&
+          osrm-extract -p /opt/car.lua /data/argentina-latest.osm.pbf &&
           # 2. Particiona y contrae los archivos generados (se generan en /data)
-          osrm-partition /data/argentina-251110.osrm &&
+          osrm-partition /data/argentina-latest.osrm &&
           # Use MLD pipeline: partition + customize (instead of CH's contract)
-          osrm-customize /data/argentina-251110.osrm;
+          osrm-customize /data/argentina-latest.osrm;
           echo '--- OSRM data generated successfully. ---';
         else
           echo '--- OSRM data already exists, skipping generation. ---';
@@ -57,7 +57,7 @@ services:
     volumes:
       - ./osrm-data:/data
     command: >
-      sh -c "echo 'starting osrm-routed (MLD)'; osrm-routed --algorithm mld /data/argentina-251110.osrm"
+      sh -c "echo 'starting osrm-routed (MLD)'; osrm-routed --algorithm mld /data/argentina-latest.osrm"
     restart: unless-stopped
     depends_on:
       - osrm-prepare

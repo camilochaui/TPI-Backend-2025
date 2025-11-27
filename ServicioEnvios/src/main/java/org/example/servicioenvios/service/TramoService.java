@@ -339,6 +339,11 @@ public class TramoService {
                 .distanciaKmEstimada(tramo.getDistanciaKmEstimada())
                 .fechaHoraInicioEstimada(tramo.getFechaHoraInicioEstimada())
                 .fechaHoraFinEstimada(tramo.getFechaHoraFinEstimada())
+                .fechaHoraInicioReal(tramo.getFechaHoraInicioReal())
+                .fechaHoraFinReal(tramo.getFechaHoraFinReal())
+                .costoEstimado(tramo.getCostoEstimado())
+                .costoReal(tramo.getCostoReal())
+                .costoEstadiaDeposito(tramo.getCostoEstadiaDeposito())
                 .build();
     }
 

@@ -52,6 +52,10 @@ public interface FlotaFeignClient {
 
 
     // TRANSPORTISTAS
+    @GetMapping("/transportistas")
+    List<TransportistaDTO> listarTransportistas();
+
+
     @GetMapping("/transportistas/{id}")
     TransportistaDTO obtenerTransportistaPorId(@PathVariable("id") Integer id);
 

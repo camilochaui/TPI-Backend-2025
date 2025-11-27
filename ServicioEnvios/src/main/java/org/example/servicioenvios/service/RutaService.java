@@ -69,15 +69,15 @@ public class RutaService {
 
 
                 // Obtener origen y destino desde las ubicaciones de la solicitud
-        // Los tipos en DB usan guión bajo (CLIENTE_ORIGEN, CLIENTE_DESTINO)
+        // Los tipos en DB usan guión bajo (CLIENTE-ORIGEN, CLIENTE-DESTINO)
         Ubicacion origen = solicitud.getUbicaciones().stream()
-                .filter(u -> "CLIENTE_ORIGEN".equals(u.getTipo().getNombre()))
+                .filter(u -> "CLIENTE-ORIGEN".equals(u.getTipo().getNombre()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "La solicitud no tiene una ubicación de ORIGEN definida."));
 
         Ubicacion destino = solicitud.getUbicaciones().stream()
-                .filter(u -> "CLIENTE_DESTINO".equals(u.getTipo().getNombre()))
+                .filter(u -> "CLIENTE-DESTINO".equals(u.getTipo().getNombre()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "La solicitud no tiene una ubicación de DESTINO definida."));

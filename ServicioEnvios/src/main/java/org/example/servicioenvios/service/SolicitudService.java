@@ -184,7 +184,9 @@ public class SolicitudService {
             Solicitud solicitud, // <-- Acepta la Solicitud
             String direccion, Double latitud, Double longitud, String tipoNombre) {
 
-        String tipoNombreDb = tipoNombre != null ? tipoNombre.replace("-", "_") : null;
+        // Preservar el formato con guiones tal como está en la BD.
+        // Normalizamos espacios y mayúsculas para hacer la búsqueda más robusta.
+        String tipoNombreDb = tipoNombre != null ? tipoNombre.trim().toUpperCase() : null;
         TipoUbicacion tipo = tipoUbicacionRepository.findByNombre(tipoNombreDb)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "Tipo de ubicación no encontrado: " + tipoNombre));

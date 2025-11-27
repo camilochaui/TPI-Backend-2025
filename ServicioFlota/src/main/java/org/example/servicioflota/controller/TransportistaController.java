@@ -98,7 +98,9 @@ public class TransportistaController {
         dto.setTelefono(transportista.getTelefono());
         dto.setDisponibilidad(transportista.isDisponibilidad());
         if (transportista.getCamion() != null) {
-            dto.setCamionPatente(transportista.getCamion().getPatente());
+            dto.setCamionesPatentes(java.util.List.of(transportista.getCamion().getPatente()));
+        } else {
+            dto.setCamionesPatentes(java.util.List.of());
         }
         return dto;
     }
