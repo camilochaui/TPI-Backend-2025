@@ -30,7 +30,7 @@ services:
     image: ghcr.io/project-osrm/osrm-backend:v6.0.0
     container_name: osrm-prepare
     volumes:
-      - osrm_data:/data
+      - ./osrm-data:/data
     command: >
       /bin/sh -c "
         if [ ! -f /data/argentina-251110.osrm ]; then
@@ -55,7 +55,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - osrm_data:/data
+      - ./osrm-data:/data
     command: >
       sh -c "echo 'starting osrm-routed (MLD)'; osrm-routed --algorithm mld /data/argentina-251110.osrm"
     restart: unless-stopped
