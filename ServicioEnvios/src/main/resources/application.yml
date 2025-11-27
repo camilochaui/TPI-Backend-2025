@@ -1,6 +1,9 @@
 # --- Identidad del Servicio (Spring) ---
 server:
   port: 8082
+  error:
+    include-message: always
+    include-stacktrace: never
 
 spring:
   application:

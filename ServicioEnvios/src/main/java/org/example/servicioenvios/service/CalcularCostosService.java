@@ -35,7 +35,7 @@ public class CalcularCostosService {
 
     // Constantes para valores por defecto en estimaciones
     private static final Float CONSUMO_DEFAULT = 0.3f;
-    private static final String COMBUSTIBLE_DEFAULT = "Estandar";
+    private static final String COMBUSTIBLE_DEFAULT = "Diesel";
     private static final Float VOLUMEN_DEFAULT = 50.0f;
     private static final Float TARIFA_GESTION_DEFAULT = 1000.0f;
     private static final double UMBRAL_ASOCIACION_KM = 10.0;
@@ -262,9 +262,10 @@ public class CalcularCostosService {
             return COMBUSTIBLE_DEFAULT;
         }
         return switch (idCombustibleExt) {
-            case 1 -> "Economico";
-            case 2 -> "Estandar";
-            case 3 -> "Premium";
+            case 1 -> "Diesel";
+            case 2 -> "Super";
+            case 3 -> "GNC";
+            case 4 -> "Premium";
             default -> {
                 log.warn("ID de combustible desconocido: {}. Usando categoría por defecto: {}", idCombustibleExt, COMBUSTIBLE_DEFAULT);
                 yield COMBUSTIBLE_DEFAULT;

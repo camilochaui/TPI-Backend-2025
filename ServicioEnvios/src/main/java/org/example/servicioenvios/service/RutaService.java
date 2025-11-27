@@ -67,15 +67,16 @@ public class RutaService {
     public List<RutaTentativaDTO> consultarRutasTentativas(Long numSolicitud) {
         Solicitud solicitud = findSolicitud(numSolicitud);
 
-        // Obtener origen y destino desde las ubicaciones de la solicitud
+
+                // Obtener origen y destino desde las ubicaciones de la solicitud
         Ubicacion origen = solicitud.getUbicaciones().stream()
-                .filter(u -> "CLIENTE_ORIGEN".equals(u.getTipo().getNombre()))
+                .filter(u -> "CLIENTE-ORIGEN".equals(u.getTipo().getNombre()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "La solicitud no tiene una ubicación de ORIGEN definida."));
 
         Ubicacion destino = solicitud.getUbicaciones().stream()
-                .filter(u -> "CLIENTE_DESTINO".equals(u.getTipo().getNombre()))
+                .filter(u -> "CLIENTE-DESTINO".equals(u.getTipo().getNombre()))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "La solicitud no tiene una ubicación de DESTINO definida."));
@@ -223,11 +224,11 @@ public class RutaService {
                 double desvio = distanciaTotal - distanciaDirecta;
 
                 // Filtrar: debe tener desvío positivo pero dentro del máximo permitido
-                if (desvio > 0 && desvio <= DESVIO_MAXIMO_KM) {
-                    candidatos.add(new DepositoCandidate(deposito, desvio, distanciaTotal));
-                    log.debug("   ✓ {} - Desvío: {:.1f} km, Dist Total: {:.1f} km",
-                            deposito.getNombre(), desvio, distanciaTotal);
-                }
+                                if (desvio > 0 && desvio <= DESVIO_MAXIMO_KM) {
+                                        candidatos.add(new DepositoCandidate(deposito, desvio));
+                                        log.debug("   ✓ {} - Desvío: {:.1f} km, Dist Total: {:.1f} km",
+                                                        deposito.getNombre(), desvio, distanciaTotal);
+                                }
             }
 
             if (candidatos.isEmpty()) {
@@ -254,17 +255,15 @@ public class RutaService {
     /**
      * Clase auxiliar para ordenar depósitos candidatos por eficiencia
      */
-    private static class DepositoCandidate {
-        final DepositoDTO deposito;
-        final double desvio;
-        final double distanciaTotal;
+        private static class DepositoCandidate {
+                final DepositoDTO deposito;
+                final double desvio;
 
-        DepositoCandidate(DepositoDTO deposito, double desvio, double distanciaTotal) {
-            this.deposito = deposito;
-            this.desvio = desvio;
-            this.distanciaTotal = distanciaTotal;
+                DepositoCandidate(DepositoDTO deposito, double desvio) {
+                        this.deposito = deposito;
+                        this.desvio = desvio;
+                }
         }
-    }
 
     private RutaTentativaDTO generarRutaDirecta(Solicitud solicitud, Ubicacion origen,
                                                 Ubicacion destino, double distancia) {

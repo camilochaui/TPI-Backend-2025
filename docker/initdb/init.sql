@@ -204,13 +204,13 @@ BEGIN
   SELECT tu.nombre INTO destino_tipo FROM tipo_ubicacion tu JOIN ubicacion u ON tu.id_tipo_ubicacion = u.id_tipo_ubicacion WHERE u.id_ubicacion = NEW.destino_id;
 
   IF origen_tipo = 'CLIENTE-ORIGEN' AND destino_tipo = 'DEPOSITO' THEN
-    NEW.tipo_tramo = 'ORIGEN-DEPOSITO';
+    NEW.tipo_tramo = 'origen-deposito';
   ELSIF origen_tipo = 'DEPOSITO' AND destino_tipo = 'DEPOSITO' THEN
-    NEW.tipo_tramo = 'DEPOSITO-DEPOSITO';
+    NEW.tipo_tramo = 'deposito-deposito';
   ELSIF origen_tipo = 'DEPOSITO' AND destino_tipo = 'CLIENTE-DESTINO' THEN
-    NEW.tipo_tramo = 'DEPOSITO-DESTINO';
+    NEW.tipo_tramo = 'deposito-destino';
   ELSIF origen_tipo = 'CLIENTE-ORIGEN' AND destino_tipo = 'CLIENTE-DESTINO' THEN
-    NEW.tipo_tramo = 'ORIGEN-DESTINO';
+    NEW.tipo_tramo = 'origen-destino';
   ELSE
     NEW.tipo_tramo = NULL;
   END IF;
@@ -251,6 +251,7 @@ CREATE TRIGGER trg_update_ruta_counts AFTER INSERT OR UPDATE OR DELETE ON tramo 
 
 
 
+-- Tipo de ubicaciones principales: cliente origen, deposito, cliente destino
 INSERT INTO tipo_ubicacion (nombre) VALUES ('CLIENTE-ORIGEN'),('DEPOSITO'),('CLIENTE-DESTINO');
 
 -- =====================================
@@ -388,7 +389,7 @@ ALTER TABLE tramo
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tramo_tipo_tramo_check') THEN
-    EXECUTE 'ALTER TABLE tramo ADD CONSTRAINT tramo_tipo_tramo_check CHECK (tipo_tramo IN (''ORIGEN-DEPOSITO'',''DEPOSITO-DEPOSITO'',''DEPOSITO-DESTINO'',''ORIGEN-DESTINO'') AND tipo_tramo IS NOT NULL)';
+    EXECUTE 'ALTER TABLE tramo ADD CONSTRAINT tramo_tipo_tramo_check CHECK (tipo_tramo IN (''origen-deposito'',''deposito-deposito'',''deposito-destino'',''origen-destino'') AND tipo_tramo IS NOT NULL)';
   END IF;
 END
 $$;
@@ -487,7 +488,7 @@ VALUES (
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Av. Corrientes 1234, La Plata%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Buenos Aires - Av. Corrientes 1234%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   'PENDIENTE',
-  'ORIGEN-DEPOSITO',
+  'origen-deposito',
   60.5,
   25000.00
 );
@@ -514,7 +515,7 @@ VALUES (
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Córdoba - Calle Falsa 123%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Bv. Oroño 810, Rosario%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   'INICIADO',
-  'DEPOSITO-DESTINO',
+  'deposito-destino',
   370.2,
   32000.00
 );
@@ -541,7 +542,7 @@ VALUES (
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Santa Fe - Av. Pellegrini 2500%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   (SELECT id_ubicacion FROM ubicacion WHERE direccion LIKE 'Depósito Mendoza - Av. San Martín 1456%' AND num_solicitud = currval('solicitud_num_solicitud_seq') LIMIT 1),
   'FINALIZADO',
-  'DEPOSITO-DEPOSITO',
+  'deposito-deposito',
   1060.0,
   45000.00
 );

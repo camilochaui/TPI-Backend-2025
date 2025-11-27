@@ -12,6 +12,7 @@ import org.example.serviciotarifa.repository.*;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,22 +25,26 @@ public class CalculadoraTarifasService {
     private final TarifaBaseKmRepository tarifaBaseKmRepository;
     private final TarifaEstadiaRepository tarifaEstadiaRepository;
     private final CalculoRepository calculoRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     public CalculadoraTarifasService(CombustibleRepository combustibleRepository,
                                      TarifaBaseKmRepository tarifaBaseKmRepository,
                                      TarifaEstadiaRepository tarifaEstadiaRepository,
-                                     CalculoRepository calculoRepository) {
+                                     CalculoRepository calculoRepository,
+                                     JdbcTemplate jdbcTemplate) {
         this.combustibleRepository = combustibleRepository;
         this.tarifaBaseKmRepository = tarifaBaseKmRepository;
         this.tarifaEstadiaRepository = tarifaEstadiaRepository;
         this.calculoRepository = calculoRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
 
     public Float obtenerPrecioCombustible(String tipoCombustible) {
+        // Devolver precio por nombre si existe; si no, lanzar excepción para que el llamador trate el error.
         return combustibleRepository.findByNombre(tipoCombustible)
-                .map(Combustible::getPrecioXLitro)
-                .orElseThrow(() -> new IllegalArgumentException("Combustible no encontrado: " + tipoCombustible));
+            .map(Combustible::getPrecioXLitro)
+            .orElseThrow(() -> new IllegalArgumentException("Combustible no encontrado: " + tipoCombustible));
     }
 
     public Float obtenerTarifaBaseKm(Float volumenContenedor) {
@@ -139,9 +144,18 @@ public class CalculadoraTarifasService {
             // Convertir details a JSON string
             ObjectMapper objectMapper = new ObjectMapper();
             String datableJson = objectMapper.writeValueAsString(response.getDetails());
-            calculo.setDetalle(datableJson);
+                calculo.setDetalle(datableJson);
 
-            guardarCalculo(calculo);
+                // Insert using JdbcTemplate and cast the parameter to JSON to avoid PostgreSQL type error
+                String sql = "INSERT INTO calculo (idcalculo, idsolicitud_ext, tipocalculo, consumopromediogeneral, costototal, detalle) VALUES (?, ?, ?, ?, ?, ?::json)";
+                jdbcTemplate.update(sql,
+                    calculo.getIdCalculo(),
+                    calculo.getIdSolicitudExt(),
+                    calculo.getTipoCalculo(),
+                    calculo.getConsumoPromedioGeneral(),
+                    calculo.getCostoTotal(),
+                    datableJson
+                );
         } catch (Exception e) {
             // Log del error pero no interrumpir el flujo
             System.err.println("Error guardando cálculo en BD: " + e.getMessage());
