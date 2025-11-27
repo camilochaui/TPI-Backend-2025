@@ -7,6 +7,7 @@ import org.example.servicioflota.service.ContenedorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,6 +21,7 @@ public class ContenedorController {
     private ContenedorService contenedorService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ContenedorDTO> createContenedor(@RequestBody ContenedorDTO contenedorDTO) {
         Contenedor contenedor = convertToEntity(contenedorDTO);
         Contenedor nuevoContenedor = contenedorService.saveContenedor(contenedor);
@@ -37,8 +39,9 @@ public class ContenedorController {
     @GetMapping
     public ResponseEntity<List<ContenedorDTO>> getContenedores(
             @RequestParam(required = false) String estado,
-            @RequestParam(required = false) Integer depositoId) {
-        List<Contenedor> contenedores = contenedorService.getAllContenedores(estado, depositoId);
+            @RequestParam(required = false) Integer depositoId,
+            @RequestParam(required = false, defaultValue = "false") Boolean pendientes) {
+        List<Contenedor> contenedores = contenedorService.getAllContenedores(estado, depositoId, pendientes);
         List<ContenedorDTO> contenedorDTOs = contenedores.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
