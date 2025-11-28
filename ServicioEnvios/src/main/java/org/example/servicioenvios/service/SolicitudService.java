@@ -365,11 +365,39 @@ public class SolicitudService {
         log.debug("Transición válida: {} -> {}", estadoActual, nuevoEstado);
     }
 
-    private String calcularTiempoEstimado(Solicitud solicitud) {
-        // Lógica simple para calcular tiempo estimado
-        int diasEstimados = solicitud.getRuta().getCantidadTramos() * 2; // 2 días por tramo
-        return diasEstimados + " días";
-    }
+        private String calcularTiempoEstimado(Solicitud solicitud) {
+                // Estimación en base a distancia total y velocidad promedio
+                if (solicitud.getRuta() == null || solicitud.getRuta().getTramos() == null || solicitud.getRuta().getTramos().isEmpty()) {
+                        return "0 días";
+                }
+
+                // Configuración básica: velocidad promedio del camión (km/h) y tiempo fijo por depósito/entrega (horas)
+                double velocidadPromedioKmH = 60.0; // configurable según negocio
+                double tiempoManejoPorParadaHoras = 2.0; // carga/descarga, papeleo, etc.
+
+                double distanciaTotalKm = 0.0;
+                int paradas = 0;
+                for (Tramo tramo : solicitud.getRuta().getTramos()) {
+                        if (tramo.getDistanciaKmEstimada() != null) {
+                                distanciaTotalKm += tramo.getDistanciaKmEstimada();
+                        }
+                        // Consideramos una parada por tramo (puede ajustarse si hay depósitos intermedios)
+                        paradas++;
+                }
+
+                // Tiempo de viaje en horas
+                double horasViaje = distanciaTotalKm / velocidadPromedioKmH;
+                // Tiempo de paradas en horas
+                double horasParadas = paradas * tiempoManejoPorParadaHoras;
+
+                double horasTotales = horasViaje + horasParadas;
+
+                long dias = (long) Math.floor(horasTotales / 24.0);
+                long horas = (long) Math.floor(horasTotales % 24.0);
+                long minutos = (long) Math.round((horasTotales * 60) % 60);
+
+                return String.format("%d días, %d horas, %d minutos", dias, horas, minutos);
+        }
 
     private RutaResponseDTO mapRutaToDTO(Ruta ruta) {
         if (ruta == null) {

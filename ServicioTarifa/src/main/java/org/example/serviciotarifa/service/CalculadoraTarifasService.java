@@ -17,6 +17,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import org.example.serviciotarifa.dto.TramoRequest;
+import org.example.serviciotarifa.dto.CamionCandidate;
 
 @Service
 public class CalculadoraTarifasService {
@@ -65,45 +67,109 @@ public class CalculadoraTarifasService {
 
     public CalculoTarifaResponse calcularTarifas(CalculoTarifaRequest request) {
         try {
-            // 1. Calcular costo de combustible
+            // Obtener precio de combustible
             Float precioCombustible = obtenerPrecioCombustible(request.getTipoCombustible());
-            Float costoCombustible = request.getDistanciaTotalKm() * request.getConsumoCamionLitroKm() * precioCombustible;
 
-            // 2. Calcular costo de tarifa base por km
-            Float tarifaBaseKm = obtenerTarifaBaseKm(request.getVolumenContenedor());
-            Float costoTarifaBase = request.getDistanciaTotalKm() * tarifaBaseKm;
-
-            // 3. Calcular costo de estadías
+            // Calcular costo de estadías
             Float costoEstadias = 0.0f;
             if (request.getEstadias() != null) {
                 for (EstadiaRequest estadia : request.getEstadias()) {
-
                     Float costoDiario = obtenerCostoEstadia(estadia.getIdDeposito());
-
                     long diasEstadia = java.time.temporal.ChronoUnit.DAYS.between(
                             estadia.getFechaEntrada(), estadia.getFechaSalida());
                     costoEstadias += costoDiario * diasEstadia;
                 }
             }
 
-            // 4. Calcular tarifa de gestión (si aplica)
-            Float costoTarifaGestion = request.getTarifaGestion() != null ? request.getTarifaGestion() : 0.0f;
+            // Tarifa de gestión: si se proporciona se interpreta como valor por tramo; si se dio cantidadTramos la multiplicamos
+            Float tarifaGestionUnitaria = request.getTarifaGestion() != null ? request.getTarifaGestion() : 0.0f;
+            int cantidadTramos = request.getCantidadTramos() != null ? request.getCantidadTramos() : 0;
+            Float costoTarifaGestion = tarifaGestionUnitaria * Math.max(1, cantidadTramos);
 
-            // 5. Calcular costo total
-            Float costoTotal = costoCombustible + costoTarifaBase + costoEstadias + costoTarifaGestion;
+            Float costoTotal = 0.0f;
+            Float consumoPromedioGeneral = 0.0f;
 
-            // 6. Calcular consumo promedio general
-            Float consumoPromedioGeneral = request.getConsumoCamionLitroKm();
+            // 1) Si vienen tramos con camión asignado -- calculamos por tramo (más preciso)
+            if (request.getTramos() != null && !request.getTramos().isEmpty()) {
+                for (TramoRequest tramo : request.getTramos()) {
+                    // Validar capacidades si se conocen y si se pasó el peso/volumen del contenedor
+                    if (request.getPesoContenedor() != null && tramo.getCapacidadPeso() != null) {
+                        if (request.getPesoContenedor() > tramo.getCapacidadPeso()) {
+                            throw new IllegalArgumentException("Camión asignado no soporta el peso del contenedor en un tramo");
+                        }
+                    }
+                    if (request.getVolumenContenedor() != null && tramo.getCapacidadVolumen() != null) {
+                        if (request.getVolumenContenedor() > tramo.getCapacidadVolumen()) {
+                            throw new IllegalArgumentException("Camión asignado no soporta el volumen del contenedor en un tramo");
+                        }
+                    }
+
+                    Float distancia = tramo.getDistanciaKm();
+                    Float costoKm = tramo.getCostoKmCamion() != null ? tramo.getCostoKmCamion() : 0.0f;
+                    Float consumoTramo = tramo.getConsumoCamionLitroKm() != null ? tramo.getConsumoCamionLitroKm() : 0.0f;
+
+                    Float costoPorKm = distancia * costoKm;
+                    Float costoCombustibleTramo = distancia * consumoTramo * precioCombustible;
+
+                    costoTotal += costoPorKm + costoCombustibleTramo;
+                    consumoPromedioGeneral += consumoTramo * distancia; // para promedio ponderado
+                }
+
+                // consumoPromedioGeneral -> convertir a L/km promedio ponderado
+                Float distanciaTotal = 0.0f;
+                for (TramoRequest t : request.getTramos()) distanciaTotal += t.getDistanciaKm();
+                if (distanciaTotal > 0) consumoPromedioGeneral = consumoPromedioGeneral / distanciaTotal;
+                else consumoPromedioGeneral = request.getConsumoCamionLitroKm();
+
+                // sumar estadías y gestión
+                costoTotal += costoEstadias + costoTarifaGestion;
+
+            } else if (request.getCamionElegibles() != null && !request.getCamionElegibles().isEmpty()) {
+                // 2) Si no hay tramos pero hay camiones elegibles -> calcular tarifa aproximada como promedio
+                Float distanciaTotal = request.getDistanciaTotalKm() != null ? request.getDistanciaTotalKm() : 0.0f;
+                float sumaCostos = 0.0f;
+                float sumaConsumos = 0.0f;
+                int count = 0;
+                for (CamionCandidate c : request.getCamionElegibles()) {
+                    // considerar solo camiones que soporten peso/volumen si esos datos están presentes
+                    if (request.getPesoContenedor() != null && c.getCapacidadPeso() != null) {
+                        if (request.getPesoContenedor() > c.getCapacidadPeso()) continue;
+                    }
+                    if (request.getVolumenContenedor() != null && c.getCapacidadVolumen() != null) {
+                        if (request.getVolumenContenedor() > c.getCapacidadVolumen()) continue;
+                    }
+
+                    Float costoKm = c.getCostoKm() != null ? c.getCostoKm() : 0.0f;
+                    Float consumo = c.getConsumoPromedioLitroKm() != null ? c.getConsumoPromedioLitroKm() : 0.0f;
+
+                    Float costoPorKm = distanciaTotal * costoKm;
+                    Float costoCombustible = distanciaTotal * consumo * precioCombustible;
+                    Float costoEstimadoCamion = costoPorKm + costoCombustible + costoEstadias + costoTarifaGestion;
+                    sumaCostos += costoEstimadoCamion;
+                    sumaConsumos += consumo;
+                    count++;
+                }
+                if (count == 0) throw new IllegalArgumentException("No hay camiones elegibles que soporten el contenedor");
+                costoTotal = sumaCostos / count;
+                consumoPromedioGeneral = sumaConsumos / count;
+
+            } else {
+                // 3) Fallback: comportamiento original basado en tarifaBaseKm y consumo proporcionado
+                Float costoCombustible = request.getDistanciaTotalKm() * request.getConsumoCamionLitroKm() * precioCombustible;
+                Float tarifaBaseKm = obtenerTarifaBaseKm(request.getVolumenContenedor());
+                Float costoTarifaBase = request.getDistanciaTotalKm() * tarifaBaseKm;
+                costoTotal = costoCombustible + costoTarifaBase + costoEstadias + costoTarifaGestion;
+                consumoPromedioGeneral = request.getConsumoCamionLitroKm();
+            }
 
             // 7. Preparar detalles
             Map<String, Object> details = new HashMap<>();
-            details.put("costoCombustible", costoCombustible);
-            details.put("costoTarifaBase", costoTarifaBase);
             details.put("costoEstadias", costoEstadias);
             details.put("costoTarifaGestion", costoTarifaGestion);
             details.put("precioCombustible", precioCombustible);
-            details.put("tarifaBaseKm", tarifaBaseKm);
             details.put("distanciaTotal", request.getDistanciaTotalKm());
+            details.put("costoTotalCalculadoAntesDeGestionYEstadias", costoTotal);
+            details.put("consumoPromedio", consumoPromedioGeneral);
 
             // 8. Generar ID de cálculo
             Integer idCalculo = generarIdCalculo();

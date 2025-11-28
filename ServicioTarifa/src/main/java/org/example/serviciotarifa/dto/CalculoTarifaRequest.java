@@ -1,6 +1,8 @@
 package org.example.serviciotarifa.dto;
 
 import java.util.List;
+import org.example.serviciotarifa.dto.TramoRequest;
+import org.example.serviciotarifa.dto.CamionCandidate;
 
 public class CalculoTarifaRequest {
     private Integer idSolicitud;
@@ -8,9 +10,12 @@ public class CalculoTarifaRequest {
     private String tipoCombustible;
     private Float distanciaTotalKm;
     private Float volumenContenedor;
+    private Float pesoContenedor;
     private List<EstadiaRequest> estadias;
     private Float tarifaGestion;
     private Integer cantidadTramos;
+    private List<TramoRequest> tramos;
+    private List<CamionCandidate> camionElegibles;
 
     public CalculoTarifaRequest() {}
 
@@ -29,6 +34,9 @@ public class CalculoTarifaRequest {
     public Float getVolumenContenedor() { return volumenContenedor; }
     public void setVolumenContenedor(Float volumenContenedor) { this.volumenContenedor = volumenContenedor; }
 
+    public Float getPesoContenedor() { return pesoContenedor; }
+    public void setPesoContenedor(Float pesoContenedor) { this.pesoContenedor = pesoContenedor; }
+
     public List<EstadiaRequest> getEstadias() { return estadias; }
     public void setEstadias(List<EstadiaRequest> estadias) { this.estadias = estadias; }
 
@@ -37,4 +45,10 @@ public class CalculoTarifaRequest {
 
     public Integer getCantidadTramos() { return cantidadTramos; }
     public void setCantidadTramos(Integer cantidadTramos) { this.cantidadTramos = cantidadTramos; }
+
+    public List<TramoRequest> getTramos() { return tramos; }
+    public void setTramos(List<TramoRequest> tramos) { this.tramos = tramos; }
+
+    public List<CamionCandidate> getCamionElegibles() { return camionElegibles; }
+    public void setCamionElegibles(List<CamionCandidate> camionElegibles) { this.camionElegibles = camionElegibles; }
 }
