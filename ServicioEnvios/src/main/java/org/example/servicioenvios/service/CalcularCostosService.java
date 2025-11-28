@@ -180,17 +180,32 @@ public class CalcularCostosService {
             if (esDeposito(destino)) {
                 Long idDeposito = asociarDepositoExistente(destino);
                 if (idDeposito != null) {
+                    // USAR FECHAS REALES si existen, sino usar estimadas
+                    LocalDateTime fechaEntrada = tramo.getFechaHoraInicioReal() != null 
+                            ? tramo.getFechaHoraInicioReal() 
+                            : tramo.getFechaHoraInicioEstimada();
+                    
+                    LocalDateTime fechaSalida = tramo.getFechaHoraFinReal() != null 
+                            ? tramo.getFechaHoraFinReal() 
+                            : tramo.getFechaHoraFinEstimada();
+
                     CotizacionRequestDTO.EstadiaDTO estadia = CotizacionRequestDTO.EstadiaDTO.builder()
                             .idDeposito(idDeposito)
-                            .fechaEntrada(formatFecha(tramo.getFechaHoraInicioEstimada()))
-                            .fechaSalida(formatFecha(tramo.getFechaHoraFinEstimada()))
+                            .fechaEntrada(formatFecha(fechaEntrada))
+                            .fechaSalida(formatFecha(fechaSalida))
                             .build();
                     estadias.add(estadia);
+                    
+                    log.info("Estadía calculada para tramo {} en depósito {}: entrada={}, salida={}", 
+                            tramo.getIdTramo(), idDeposito, formatFecha(fechaEntrada), formatFecha(fechaSalida));
                 } else {
                     log.warn("El destino es tipo DEPOSITO pero no coincidió con ningún ID fijo dentro del umbral de {} km.", UMBRAL_ASOCIACION_KM);
                 }
             }
         }
+        
+        log.info("Total de estadías calculadas para solicitud {}: {}", 
+                solicitud.getNumSolicitud(), estadias.size());
         return estadias;
     }
 

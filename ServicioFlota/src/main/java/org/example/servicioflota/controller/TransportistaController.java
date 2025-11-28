@@ -1,5 +1,11 @@
 package org.example.servicioflota.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.servicioflota.dto.TransportistaDTO;
 import org.example.servicioflota.model.Camion;
 import org.example.servicioflota.model.Transportista;
@@ -15,11 +21,20 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/flota/transportistas")
+@Tag(name = "Gestión de Transportistas", description = "Endpoints para administrar transportistas y su disponibilidad")
+@SecurityRequirement(name = "bearerAuth")
 public class TransportistaController {
 
     @Autowired
     private TransportistaService transportistaService;
 
+    @Operation(
+        summary = "Listar todos los transportistas",
+        description = "Obtiene la lista completa de transportistas registrados en el sistema"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista obtenida exitosamente")
+    })
     @GetMapping
     public List<TransportistaDTO> getAllTransportistas() {
         return transportistaService.getAllTransportistas().stream()
@@ -27,16 +42,35 @@ public class TransportistaController {
                 .collect(Collectors.toList());
     }
 
+    @Operation(
+        summary = "Obtener transportista por ID",
+        description = "Consulta los detalles de un transportista específico mediante su identificador"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Transportista encontrado"),
+        @ApiResponse(responseCode = "404", description = "Transportista no encontrado")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<TransportistaDTO> getTransportistaById(@PathVariable Integer id) {
+    public ResponseEntity<TransportistaDTO> getTransportistaById(
+            @Parameter(description = "ID del transportista", required = true, example = "1")
+            @PathVariable Integer id) {
         return transportistaService.getTransportistaById(id)
                 .map(this::convertToDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(
+        summary = "Registrar nuevo transportista",
+        description = "Crea un nuevo transportista con sus datos personales y de contacto"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Transportista creado exitosamente")
+    })
     @PostMapping()
-    public ResponseEntity<TransportistaDTO> createTransportista(@RequestBody TransportistaDTO transportistaDTO) {
+    public ResponseEntity<TransportistaDTO> createTransportista(
+            @Parameter(description = "Datos del transportista a crear", required = true)
+            @RequestBody TransportistaDTO transportistaDTO) {
         Transportista transportista = new Transportista();
         transportista.setNombre(transportistaDTO.getNombre());
         transportista.setApellido(transportistaDTO.getApellido());
@@ -48,8 +82,20 @@ public class TransportistaController {
         return new ResponseEntity<>(convertToDto(nuevoTransportista), HttpStatus.CREATED);
     }
 
+    @Operation(
+        summary = "Actualizar transportista",
+        description = "Modifica los datos de un transportista existente"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Transportista actualizado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Transportista no encontrado")
+    })
     @PutMapping
-    public ResponseEntity<TransportistaDTO> updateTransportista(@PathVariable Integer id, @RequestBody TransportistaDTO transportistaDTO) {
+    public ResponseEntity<TransportistaDTO> updateTransportista(
+            @Parameter(description = "ID del transportista", required = true, example = "1")
+            @PathVariable Integer id,
+            @Parameter(description = "Datos actualizados del transportista", required = true)
+            @RequestBody TransportistaDTO transportistaDTO) {
         try {
             Transportista transportistaDetails = new Transportista();
             transportistaDetails.setNombre(transportistaDTO.getNombre());
@@ -65,8 +111,18 @@ public class TransportistaController {
         }
     }
 
+    @Operation(
+        summary = "Asignar transportista (marcar como ocupado)",
+        description = "Marca un transportista como ocupado/asignado para una ruta o envío"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Transportista asignado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Transportista no encontrado")
+    })
     @PostMapping("/{id}/transportista-asignado")
-    public ResponseEntity<Map<String, String>> asignarTransportista(@PathVariable Integer id) {
+    public ResponseEntity<Map<String, String>> asignarTransportista(
+            @Parameter(description = "ID del transportista", required = true, example = "1")
+            @PathVariable Integer id) {
         try {
             transportistaService.asignarTransportista(id);
 
@@ -77,8 +133,18 @@ public class TransportistaController {
         }
     }
 
+    @Operation(
+        summary = "Liberar transportista (marcar como disponible)",
+        description = "Marca un transportista como libre/disponible después de completar una ruta o envío"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Transportista liberado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Transportista no encontrado")
+    })
     @PostMapping("/{id}/transportista-libre")
-    public ResponseEntity<Map<String, String>> liberarTransportista(@PathVariable Integer id) {
+    public ResponseEntity<Map<String, String>> liberarTransportista(
+            @Parameter(description = "ID del transportista", required = true, example = "1")
+            @PathVariable Integer id) {
         try {
             transportistaService.liberarTransportista(id);
 

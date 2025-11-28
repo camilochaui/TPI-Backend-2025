@@ -1,5 +1,11 @@
 package org.example.servicioflota.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.example.servicioflota.dto.DepositoDTO;
 import org.example.servicioflota.model.Contenedor;
 import org.example.servicioflota.model.Deposito;
@@ -17,6 +23,8 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/flota/depositos")
+@Tag(name = "Gestión de Depósitos", description = "Endpoints para administrar depósitos y realizar check-in/check-out de contenedores")
+@SecurityRequirement(name = "bearerAuth")
 public class DepositoController {
 
     @Autowired
@@ -25,6 +33,13 @@ public class DepositoController {
     @Autowired
     private org.example.servicioflota.repository.ContenedorRepository contenedorRepository;
 
+    @Operation(
+        summary = "Listar todos los depósitos",
+        description = "Obtiene la lista completa de depósitos registrados con sus ubicaciones y contenedores asignados"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista obtenida exitosamente")
+    })
     @GetMapping
     public ResponseEntity<List<DepositoDTO>> getAllDepositos() {
         List<Deposito> depositos = depositoService.findAllDepositos();
@@ -34,16 +49,35 @@ public class DepositoController {
         return ResponseEntity.ok(depositosDto);
     }
 
+    @Operation(
+        summary = "Obtener depósito por ID",
+        description = "Consulta los detalles de un depósito específico incluyendo su ubicación y contenedores almacenados"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Depósito encontrado"),
+        @ApiResponse(responseCode = "404", description = "Depósito no encontrado")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<DepositoDTO> getDepositoById(@PathVariable Integer id) {
+    public ResponseEntity<DepositoDTO> getDepositoById(
+            @Parameter(description = "ID del depósito", required = true, example = "1")
+            @PathVariable Integer id) {
         return depositoService.getDepositoById(id)
                 .map(this::convertToDto)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(
+        summary = "Registrar nuevo depósito",
+        description = "Crea un nuevo depósito con su ubicación geográfica. Opcionalmente puede asignar contenedores iniciales."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Depósito creado exitosamente")
+    })
     @PostMapping
-    public ResponseEntity<DepositoDTO> createDeposito(@RequestBody DepositoDTO depositoDTO) {
+    public ResponseEntity<DepositoDTO> createDeposito(
+            @Parameter(description = "Datos del depósito a crear", required = true)
+            @RequestBody DepositoDTO depositoDTO) {
         Deposito deposito = convertToEntity(depositoDTO);
         Deposito nuevoDeposito = depositoService.saveDeposito(deposito);
 
@@ -55,9 +89,19 @@ public class DepositoController {
         return new ResponseEntity<>(convertToDto(nuevoDeposito), HttpStatus.CREATED);
     }
 
+    @Operation(
+        summary = "Actualizar depósito",
+        description = "Modifica los datos de un depósito existente, incluyendo nombre, dirección y coordenadas"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Depósito actualizado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Depósito no encontrado")
+    })
     @PutMapping
     public ResponseEntity<DepositoDTO> updateDeposito(
+            @Parameter(description = "ID del depósito", required = true, example = "1")
             @RequestParam Integer id,
+            @Parameter(description = "Datos actualizados del depósito", required = true)
             @RequestBody DepositoDTO depositoDTO) {
         return depositoService.getDepositoById(id)
                 .map(existingDeposito -> {
@@ -71,9 +115,19 @@ public class DepositoController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(
+        summary = "Check-in de contenedor",
+        description = "Registra la llegada de un contenedor a un depósito. Actualiza el estado del contenedor a EN_DEPOSITO."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Check-in realizado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Depósito o contenedor no encontrado")
+    })
     @PostMapping("/{id}/check-in")
     public ResponseEntity<Map<String, Object>> checkIn(
+            @Parameter(description = "ID del depósito", required = true, example = "1")
             @PathVariable Integer id,
+            @Parameter(description = "Payload con contenedorId", required = true)
             @RequestBody Map<String, String> payload
     ) {
 
@@ -81,9 +135,19 @@ public class DepositoController {
         return new ResponseEntity<>(Map.of("mensaje", "Check-in realizado correctamente"), HttpStatus.OK);
     }
 
+    @Operation(
+        summary = "Check-out de contenedor",
+        description = "Registra la salida de un contenedor de un depósito. Actualiza el estado del contenedor a EN_TRANSITO."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Check-out realizado exitosamente"),
+        @ApiResponse(responseCode = "404", description = "Depósito o contenedor no encontrado")
+    })
     @PostMapping("/{id}/check-out")
     public ResponseEntity<Map<String, Object>> checkOut(
+            @Parameter(description = "ID del depósito", required = true, example = "1")
             @PathVariable Integer id,
+            @Parameter(description = "Payload con contenedorId", required = true)
             @RequestBody Map<String, String> payload
     ) {
 
