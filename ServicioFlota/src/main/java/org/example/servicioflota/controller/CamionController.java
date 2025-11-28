@@ -22,18 +22,42 @@ public class CamionController {
     private CamionService camionService;
 
     @PostMapping
-    public ResponseEntity<CamionDTO> createCamion(@RequestBody CamionDTO camionDTO) {
-        Camion nuevoCamion = camionService.saveCamion(camionDTO);
-        return new ResponseEntity<>(convertToDto(nuevoCamion), HttpStatus.CREATED);
+    public ResponseEntity<?> createCamion(@RequestBody CamionDTO camionDTO) {
+        try {
+            Camion nuevoCamion = camionService.saveCamion(camionDTO);
+            return new ResponseEntity<>(convertToDto(nuevoCamion), HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            // Error de validación de capacidad
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (EntityNotFoundException e) {
+            // Contenedor o transportista no encontrado
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            // Cualquier otro error
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al crear el camión: " + e.getMessage()));
+        }
     }
 
     @PutMapping("/{patente}")
-    public ResponseEntity<CamionDTO> updateCamion(@PathVariable String patente, @RequestBody CamionDTO camionDTO) {
+    public ResponseEntity<?> updateCamion(@PathVariable String patente, @RequestBody CamionDTO camionDTO) {
         try {
             Camion camionActualizado = camionService.updateCamion(patente, camionDTO);
             return ResponseEntity.ok(convertToDto(camionActualizado));
+        } catch (IllegalArgumentException e) {
+            // Error de validación de capacidad
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (EntityNotFoundException e) {
+            // Camión, contenedor o transportista no encontrado
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.notFound().build();
+            // Cualquier otro error
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al actualizar el camión: " + e.getMessage()));
         }
     }
 

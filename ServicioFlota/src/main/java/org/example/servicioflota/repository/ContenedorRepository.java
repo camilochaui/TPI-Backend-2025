@@ -12,6 +12,8 @@ import java.util.List;
 @Repository
 public interface ContenedorRepository extends JpaRepository<Contenedor, String> {
 
+        List<Contenedor> findByCamionPatente(String patente);
+
         @Query("SELECT c FROM Contenedor c " +
                         "LEFT JOIN c.deposito d " +
                         "WHERE (:depositoId IS NULL OR d.idDeposito = :depositoId) " +

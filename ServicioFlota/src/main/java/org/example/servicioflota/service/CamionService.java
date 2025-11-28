@@ -31,10 +31,59 @@ public class CamionService {
 
     @Transactional
     public Camion saveCamion(CamionDTO camionDTO) {
+        System.out.println("=== INICIO saveCamion ===");
+        System.out.println("Capacidad Peso: " + camionDTO.getCapacidadPeso());
+        System.out.println("Capacidad Volumen: " + camionDTO.getCapacidadVolumen());
+        System.out.println("Contenedores a asignar: " + camionDTO.getContenedorIds());
+        
         Camion camion = new Camion();
-        convertDtoToEntity(camionDTO, camion);
+        // Primero guardar el camión sin contenedores para que tenga un ID en la BD
+        camion.setPatente(camionDTO.getPatente());
+        camion.setCapacidadPeso(camionDTO.getCapacidadPeso());
+        camion.setCapacidadVolumen(camionDTO.getCapacidadVolumen());
+        camion.setDisponibilidad(camionDTO.isDisponibilidad());
+        
+        if (camionDTO.getTransportistaId() != null) {
+            Transportista transportista = transportistaRepository.findById(camionDTO.getTransportistaId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Transportista no encontrado con ID: " + camionDTO.getTransportistaId()));
+            camion.setTransportista(transportista);
+        }
+        
         actualizarCostoBaseDesdeTarifa(camion);
-        return camionRepository.save(camion);
+        camion = camionRepository.save(camion);
+        System.out.println("Camión guardado con patente: " + camion.getPatente());
+        
+        // Ahora asignar los contenedores
+        if (camionDTO.getContenedorIds() != null && !camionDTO.getContenedorIds().isEmpty()) {
+            System.out.println("=== ASIGNANDO CONTENEDORES ===");
+            // Asignar todos los contenedores
+            for (String idContenedor : camionDTO.getContenedorIds()) {
+                Contenedor contenedor = contenedorRepository.findById(idContenedor)
+                        .orElseThrow(() -> new EntityNotFoundException(
+                                "Contenedor no encontrado con ID: " + idContenedor));
+                System.out.println("Contenedor encontrado: " + idContenedor + " - Peso: " + contenedor.getPeso() + " - Volumen: " + contenedor.getVolumen());
+                contenedor.setCamion(camion);
+                contenedorRepository.save(contenedor);
+            }
+            
+            // IMPORTANTE: Obtener la lista actualizada de contenedores desde el repositorio
+            List<Contenedor> contenedoresCargados = contenedorRepository.findByCamionPatente(camion.getPatente());
+            System.out.println("Contenedores cargados: " + contenedoresCargados.size());
+            
+            // Validar la carga después de asignar los contenedores (lanzará excepción si excede capacidad)
+            System.out.println("=== INICIANDO VALIDACIÓN ===");
+            validarCargaTotalConLista(camion, contenedoresCargados);
+            System.out.println("=== VALIDACIÓN PASÓ ===");
+            
+            // Si la validación pasa y hay contenedores asignados, marcar como no disponible
+            camion.setDisponibilidad(false);
+            camion = camionRepository.save(camion);
+        }
+        
+        // Refrescar una vez más para asegurar que tenemos todos los datos actualizados con contenedores
+        return camionRepository.findWithContenedoresByPatente(camion.getPatente())
+                .orElse(camion);
     }
 
     @Transactional
@@ -44,6 +93,35 @@ public class CamionService {
 
         convertDtoToEntity(camionDTO, camion);
         actualizarCostoBaseDesdeTarifa(camion);
+        
+        // Actualizar contenedores si vienen en el DTO
+        if (camionDTO.getContenedorIds() != null) {
+            // Primero, liberar los contenedores actuales
+            List<Contenedor> contenedoresActuales = camion.getContenedores();
+            if (contenedoresActuales != null) {
+                for (Contenedor cont : contenedoresActuales) {
+                    cont.setCamion(null);
+                    contenedorRepository.save(cont);
+                }
+            }
+            
+            // Luego, asignar los nuevos contenedores
+            if (!camionDTO.getContenedorIds().isEmpty()) {
+                for (String idContenedor : camionDTO.getContenedorIds()) {
+                    Contenedor contenedor = contenedorRepository.findById(idContenedor)
+                            .orElseThrow(() -> new EntityNotFoundException(
+                                    "Contenedor no encontrado con ID: " + idContenedor));
+                    contenedor.setCamion(camion);
+                    contenedorRepository.save(contenedor);
+                }
+                
+                // IMPORTANTE: Obtener la lista actualizada de contenedores desde el repositorio
+                List<Contenedor> contenedoresCargados = contenedorRepository.findByCamionPatente(camion.getPatente());
+                
+                // Validar la carga después de asignar los contenedores (lanzará excepción si excede capacidad)
+                validarCargaTotalConLista(camion, contenedoresCargados);
+            }
+        }
 
         return camionRepository.save(camion);
     }
@@ -152,13 +230,30 @@ public class CamionService {
         }
     }
 
-    // Validar que un camión no supere su capacidad máxima en peso ni volumen.
-
+    /**
+     * Validar que un camión no supere su capacidad máxima en peso ni volumen.
+     * Lanza IllegalArgumentException si se excede alguna capacidad.
+     */
     private void validarCargaTotal(Camion camion) {
         List<Contenedor> contenedoresAsignados = camion.getContenedores();
 
         // Si la lista es nula o vacía, la carga total es 0, y la validación pasa.
         if (contenedoresAsignados == null || contenedoresAsignados.isEmpty()) {
+            System.out.println("VALIDACIÓN: No hay contenedores asignados");
+            return;
+        }
+
+        validarCargaTotalConLista(camion, contenedoresAsignados);
+    }
+
+    /**
+     * Validar que un camión no supere su capacidad máxima en peso ni volumen usando una lista específica.
+     * Lanza IllegalArgumentException si se excede alguna capacidad.
+     */
+    private void validarCargaTotalConLista(Camion camion, List<Contenedor> contenedoresAsignados) {
+        // Si la lista es nula o vacía, la carga total es 0, y la validación pasa.
+        if (contenedoresAsignados == null || contenedoresAsignados.isEmpty()) {
+            System.out.println("VALIDACIÓN: No hay contenedores asignados");
             return;
         }
 
@@ -168,28 +263,39 @@ public class CamionService {
 
         for (Contenedor c : contenedoresAsignados) {
             // Usamos .floatValue() o forzamos la suma a float si los campos son Integer
-            pesoTotalActual += c.getPeso() != null ? c.getPeso().floatValue() : 0f;
-            volumenTotalActual += c.getVolumen() != null ? c.getVolumen().floatValue() : 0f;
+            float peso = c.getPeso() != null ? c.getPeso().floatValue() : 0f;
+            float volumen = c.getVolumen() != null ? c.getVolumen().floatValue() : 0f;
+            pesoTotalActual += peso;
+            volumenTotalActual += volumen;
+            System.out.println("Contenedor " + c.getIdContenedor() + ": peso=" + peso + ", volumen=" + volumen);
         }
 
         // Obtener las capacidades máximas del camión (Float)
         Float capacidadPesoMax = camion.getCapacidadPeso();
         Float capacidadVolumenMax = camion.getCapacidadVolumen();
 
+        System.out.println("TOTALES - Peso: " + pesoTotalActual + "/" + capacidadPesoMax + " - Volumen: " + volumenTotalActual + "/" + capacidadVolumenMax);
+
         // Validar el peso
         if (capacidadPesoMax != null && pesoTotalActual > capacidadPesoMax) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Error de Capacidad: El peso total de la carga (%.2f) excede la capacidad máxima del camión (%.2f).",
-                            pesoTotalActual, capacidadPesoMax));
+            String errorMsg = String.format(
+                    "Error de Capacidad de Peso: El peso total de los contenedores (%.2f kg) excede la capacidad máxima del camión (%.2f kg). " +
+                    "Contenedores asignados: %d",
+                    pesoTotalActual, capacidadPesoMax, contenedoresAsignados.size());
+            System.out.println("VALIDACIÓN FALLÓ: " + errorMsg);
+            throw new IllegalArgumentException(errorMsg);
         }
 
         // Validar el volumen
         if (capacidadVolumenMax != null && volumenTotalActual > capacidadVolumenMax) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Error de Capacidad: El volumen total de la carga (%.2f) excede la capacidad máxima del camión (%.2f).",
-                            volumenTotalActual, capacidadVolumenMax));
+            String errorMsg = String.format(
+                    "Error de Capacidad de Volumen: El volumen total de los contenedores (%.2f m³) excede la capacidad máxima del camión (%.2f m³). " +
+                    "Contenedores asignados: %d",
+                    volumenTotalActual, capacidadVolumenMax, contenedoresAsignados.size());
+            System.out.println("VALIDACIÓN FALLÓ: " + errorMsg);
+            throw new IllegalArgumentException(errorMsg);
         }
+        
+        System.out.println("VALIDACIÓN EXITOSA: Capacidades dentro de los límites");
     }
 }
