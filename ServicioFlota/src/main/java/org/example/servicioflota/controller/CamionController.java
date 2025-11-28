@@ -21,6 +21,9 @@ public class CamionController {
     @Autowired
     private CamionService camionService;
 
+    @Autowired
+    private org.example.servicioflota.repository.ContenedorRepository contenedorRepository;
+
     @PostMapping
     public ResponseEntity<?> createCamion(@RequestBody CamionDTO camionDTO) {
         try {
@@ -129,10 +132,15 @@ public class CamionController {
         if (camion.getTransportista() != null) {
             dto.setTransportistaId(camion.getTransportista().getIdTransportista());
         }
-        if (camion.getContenedores() != null) {
+        if (camion.getContenedores() != null && !camion.getContenedores().isEmpty()) {
             dto.setContenedorIds(camion.getContenedores().stream()
                     .map(Contenedor::getIdContenedor)
                     .collect(Collectors.toList()));
+        } else if (camion.getPatente() != null) {
+            List<Contenedor> conts = contenedorRepository.findByCamion_Patente(camion.getPatente());
+            if (conts != null && !conts.isEmpty()) {
+                dto.setContenedorIds(conts.stream().map(Contenedor::getIdContenedor).collect(Collectors.toList()));
+            }
         }
         return dto;
     }

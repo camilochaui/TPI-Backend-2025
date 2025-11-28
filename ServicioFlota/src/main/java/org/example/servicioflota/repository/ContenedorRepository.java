@@ -38,4 +38,10 @@ public interface ContenedorRepository extends JpaRepository<Contenedor, String> 
                         "  WHERE ce2.contenedor.idContenedor = c.idContenedor " +
                         "))")
         List<Contenedor> findContenedoresPendientes(@Param("depositoId") Integer depositoId);
+
+        // Buscar contenedores por camión (patente)
+        List<Contenedor> findByCamion_Patente(String patente);
+
+        // Buscar contenedores por depósito (id)
+        List<Contenedor> findByDeposito_IdDeposito(Integer depositoId);
 }

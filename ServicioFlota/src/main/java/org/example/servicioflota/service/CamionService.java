@@ -51,6 +51,21 @@ public class CamionService {
         }
         
         actualizarCostoBaseDesdeTarifa(camion);
+        Camion saved = camionRepository.save(camion);
+
+        // Si el DTO trae contenedorIds, asignarlos al camión
+        if (camionDTO.getContenedorIds() != null && !camionDTO.getContenedorIds().isEmpty()) {
+            for (String idContenedor : camionDTO.getContenedorIds()) {
+                Contenedor contenedor = contenedorRepository.findById(idContenedor)
+                        .orElseThrow(() -> new EntityNotFoundException("Contenedor no encontrado con id: " + idContenedor));
+                contenedor.setCamion(saved);
+                contenedorRepository.save(contenedor);
+            }
+            // recargar la entidad
+            saved = camionRepository.findById(saved.getPatente()).orElse(saved);
+        }
+
+        return saved;
         camion = camionRepository.save(camion);
         System.out.println("Camión guardado con patente: " + camion.getPatente());
         
@@ -93,37 +108,20 @@ public class CamionService {
 
         convertDtoToEntity(camionDTO, camion);
         actualizarCostoBaseDesdeTarifa(camion);
-        
-        // Actualizar contenedores si vienen en el DTO
-        if (camionDTO.getContenedorIds() != null) {
-            // Primero, liberar los contenedores actuales
-            List<Contenedor> contenedoresActuales = camion.getContenedores();
-            if (contenedoresActuales != null) {
-                for (Contenedor cont : contenedoresActuales) {
-                    cont.setCamion(null);
-                    contenedorRepository.save(cont);
-                }
+
+        Camion saved = camionRepository.save(camion);
+
+        if (camionDTO.getContenedorIds() != null && !camionDTO.getContenedorIds().isEmpty()) {
+            for (String idContenedor : camionDTO.getContenedorIds()) {
+                Contenedor contenedor = contenedorRepository.findById(idContenedor)
+                        .orElseThrow(() -> new EntityNotFoundException("Contenedor no encontrado con id: " + idContenedor));
+                contenedor.setCamion(saved);
+                contenedorRepository.save(contenedor);
             }
-            
-            // Luego, asignar los nuevos contenedores
-            if (!camionDTO.getContenedorIds().isEmpty()) {
-                for (String idContenedor : camionDTO.getContenedorIds()) {
-                    Contenedor contenedor = contenedorRepository.findById(idContenedor)
-                            .orElseThrow(() -> new EntityNotFoundException(
-                                    "Contenedor no encontrado con ID: " + idContenedor));
-                    contenedor.setCamion(camion);
-                    contenedorRepository.save(contenedor);
-                }
-                
-                // IMPORTANTE: Obtener la lista actualizada de contenedores desde el repositorio
-                List<Contenedor> contenedoresCargados = contenedorRepository.findByCamionPatente(camion.getPatente());
-                
-                // Validar la carga después de asignar los contenedores (lanzará excepción si excede capacidad)
-                validarCargaTotalConLista(camion, contenedoresCargados);
-            }
+            saved = camionRepository.findById(saved.getPatente()).orElse(saved);
         }
 
-        return camionRepository.save(camion);
+        return saved;
     }
 
     @Transactional(readOnly = true)

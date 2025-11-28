@@ -50,7 +50,7 @@ public class CalcularCostosService {
         this.tarifasFeignClient = tarifasFeignClient;
     }
 
-    public double calcularCostoTramo(double distanciaKm, double costoEstadia) {
+    public double calcularCostoTramo(double distanciaKm, double costoEstadia, Double pesoMin, Double volumenMin) {
         log.info("Calculando costo estimado para tramo de {} km con estadía de ${}", distanciaKm, costoEstadia);
         try {
             List<CotizacionRequestDTO.EstadiaDTO> estadias = new ArrayList<>();
@@ -61,12 +61,42 @@ public class CalcularCostosService {
                         .fechaSalida(LocalDate.now().plusDays(1).toString())
                         .build());
             }
+            // Intentar obtener camiones elegibles para esta carga y calcular promedios
+            Float consumoPromedio = CONSUMO_DEFAULT;
+            String tipoCombustible = COMBUSTIBLE_DEFAULT;
+            try {
+                List<CamionDTO> camiones = flotaFeignClient.buscarCamionesDisponibles(
+                        pesoMin != null ? pesoMin.doubleValue() : null,
+                        volumenMin != null ? volumenMin.doubleValue() : null
+                );
+
+                if (camiones != null && !camiones.isEmpty()) {
+                    double sumaConsumo = 0.0;
+                    int cuentaConsumo = 0;
+                    for (CamionDTO c : camiones) {
+                        if (c.getConsumoXKm() != null) {
+                            sumaConsumo += c.getConsumoXKm();
+                            cuentaConsumo++;
+                        }
+                        if (tipoCombustible == null || COMBUSTIBLE_DEFAULT.equals(tipoCombustible)) {
+                            if (c.getIdCombustible_ext() != null) {
+                                tipoCombustible = mapearIdACategoriaCombustible(c.getIdCombustible_ext());
+                            }
+                        }
+                    }
+                    if (cuentaConsumo > 0) {
+                        consumoPromedio = (float) (sumaConsumo / cuentaConsumo);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("No se pudo obtener lista de camiones desde Flota para cálculo aproximado: {}", e.getMessage());
+            }
 
             CotizacionRequestDTO request = CotizacionRequestDTO.builder()
-                    .consumoCamionLitroKm(CONSUMO_DEFAULT)
-                    .tipoCombustible(COMBUSTIBLE_DEFAULT)
+                    .consumoCamionLitroKm(consumoPromedio)
+                    .tipoCombustible(tipoCombustible)
                     .distanciaTotalKm((float) distanciaKm)
-                    .volumenContenedor(VOLUMEN_DEFAULT)
+                    .volumenContenedor(volumenMin != null ? volumenMin.floatValue() : VOLUMEN_DEFAULT)
                     .tarifaGestion(TARIFA_GESTION_DEFAULT)
                     .cantidadTramos(1)
                     .estadias(estadias)

@@ -56,4 +56,25 @@ public class DepositoService {
         contenedor.setDeposito(null);
         contenedorRepository.save(contenedor);
     }
+
+    public Deposito assignContenedoresToDeposito(Integer depositoId, List<String> contenedorIds) {
+        Deposito deposito = depositoRepository.findById(depositoId)
+                .orElseThrow(() -> new EntityNotFoundException("Depósito no encontrado con id: " + depositoId));
+
+        if (contenedorIds == null || contenedorIds.isEmpty()) {
+            return deposito;
+        }
+
+        for (String idContenedor : contenedorIds) {
+            Contenedor contenedor = contenedorRepository.findById(idContenedor)
+                    .orElseThrow(() -> new EntityNotFoundException("Contenedor no encontrado con id: " + idContenedor));
+
+            contenedor.setDeposito(deposito); // Seteo la FK
+            deposito.getContenedores().add(contenedor); // <-- FALTABA ESTO
+
+            contenedorRepository.save(contenedor);
+        }
+
+        return depositoRepository.save(deposito);
+    }
 }

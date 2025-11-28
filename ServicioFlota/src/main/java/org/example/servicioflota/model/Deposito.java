@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -20,8 +21,8 @@ public class Deposito {
     private String latitud;
     private String longitud;
 
-    @OneToMany(mappedBy = "deposito")
-    private List<Contenedor> contenedores;
+    @OneToMany(mappedBy = "deposito", cascade = CascadeType.ALL)
+    private List<Contenedor> contenedores = new ArrayList<>();
 
     public Integer getIdDeposito() {
         return idDeposito;
