@@ -255,11 +255,94 @@ public class SolicitudService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No se encontró la solicitud para el contenedor " + idContenedor));
 
+        // Construir cronología de eventos basada en la información disponible
+        java.util.List<org.example.servicioenvios.dto.response.EventoSeguimientoDTO> eventos = new java.util.ArrayList<>();
+
+        // 1) Evento de creación de la solicitud
+        if (solicitud.getFechaCreacion() != null) {
+            eventos.add(org.example.servicioenvios.dto.response.EventoSeguimientoDTO.builder()
+                    .tipo("SOLICITUD_CREADA")
+                    .descripcion("Solicitud creada")
+                    .fecha(solicitud.getFechaCreacion())
+                    .build());
+        }
+
+        // 2) Eventos por cada tramo (estimados y reales, asignaciones)
+        if (solicitud.getRuta() != null && solicitud.getRuta().getTramos() != null) {
+            for (org.example.servicioenvios.entity.Tramo tramo : solicitud.getRuta().getTramos()) {
+                String baseDesc = String.format("Tramo %d (origen: %s -> destino: %s)",
+                        tramo.getOrden(),
+                        tramo.getOrigen() != null ? tramo.getOrigen().getDireccion() : "-",
+                        tramo.getDestino() != null ? tramo.getDestino().getDireccion() : "-");
+
+                // Asignación de camión (si existe patente)
+                if (tramo.getPatenteCamionExt() != null) {
+                    eventos.add(org.example.servicioenvios.dto.response.EventoSeguimientoDTO.builder()
+                            .tipo("TRAMO_ASIGNADO")
+                            .descripcion(baseDesc + " - Camión asignado: " + tramo.getPatenteCamionExt())
+                            .fecha(tramo.getFechaHoraInicioEstimada() != null ? tramo.getFechaHoraInicioEstimada() : solicitud.getFechaCreacion())
+                            .build());
+                }
+
+                // Fecha estimada inicio
+                if (tramo.getFechaHoraInicioEstimada() != null) {
+                    eventos.add(org.example.servicioenvios.dto.response.EventoSeguimientoDTO.builder()
+                            .tipo("TRAMO_INICIO_ESTIMADO")
+                            .descripcion(baseDesc + " - Inicio estimado")
+                            .fecha(tramo.getFechaHoraInicioEstimada())
+                            .build());
+                }
+
+                // Fecha estimada fin
+                if (tramo.getFechaHoraFinEstimada() != null) {
+                    eventos.add(org.example.servicioenvios.dto.response.EventoSeguimientoDTO.builder()
+                            .tipo("TRAMO_FIN_ESTIMADO")
+                            .descripcion(baseDesc + " - Fin estimado")
+                            .fecha(tramo.getFechaHoraFinEstimada())
+                            .build());
+                }
+
+                // Fecha inicio real
+                if (tramo.getFechaHoraInicioReal() != null) {
+                    eventos.add(org.example.servicioenvios.dto.response.EventoSeguimientoDTO.builder()
+                            .tipo("TRAMO_INICIO_REAL")
+                            .descripcion(baseDesc + " - Inicio real")
+                            .fecha(tramo.getFechaHoraInicioReal())
+                            .build());
+                }
+
+                // Fecha fin real
+                if (tramo.getFechaHoraFinReal() != null) {
+                    eventos.add(org.example.servicioenvios.dto.response.EventoSeguimientoDTO.builder()
+                            .tipo("TRAMO_FIN_REAL")
+                            .descripcion(baseDesc + " - Fin real")
+                            .fecha(tramo.getFechaHoraFinReal())
+                            .build());
+                }
+            }
+        }
+
+        // 3) Estado actual de la solicitud como evento final de referencia
+        eventos.add(org.example.servicioenvios.dto.response.EventoSeguimientoDTO.builder()
+                .tipo("ESTADO_ACTUAL")
+                .descripcion("Estado actual de la solicitud: " + solicitud.getEstadoSolicitud().name())
+                .fecha(java.time.LocalDateTime.now())
+                .build());
+
+        // Ordenar cronología por fecha ascendente (nulos al final)
+        eventos.sort((a, b) -> {
+            if (a.getFecha() == null && b.getFecha() == null) return 0;
+            if (a.getFecha() == null) return 1;
+            if (b.getFecha() == null) return -1;
+            return a.getFecha().compareTo(b.getFecha());
+        });
+
         return SeguimientoDTO.builder()
                 .idContenedor(solicitud.getIdContenedorExt())
                 .estadoActual(solicitud.getEstadoSolicitud().name())
                 .costoEstimado(solicitud.getCostoEstimado())
                 .tiempoEstimado(solicitud.getTiempoEstimado())
+                .eventos(eventos)
                 .build();
     }
 

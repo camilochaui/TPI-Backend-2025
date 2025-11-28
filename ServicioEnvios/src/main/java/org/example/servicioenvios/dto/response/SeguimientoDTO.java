@@ -19,4 +19,7 @@ public class SeguimientoDTO {
     // Ver costo y tiempo estimado
     private Double costoEstimado;
     private String tiempoEstimado;
+    
+    // Cronología de eventos de seguimiento ordenada por fecha ascendente
+    private java.util.List<org.example.servicioenvios.dto.response.EventoSeguimientoDTO> eventos;
 }
