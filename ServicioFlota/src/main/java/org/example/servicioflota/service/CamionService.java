@@ -61,27 +61,7 @@ public class CamionService {
                 contenedor.setCamion(saved);
                 contenedorRepository.save(contenedor);
             }
-            // recargar la entidad
-            saved = camionRepository.findById(saved.getPatente()).orElse(saved);
-        }
 
-        return saved;
-        camion = camionRepository.save(camion);
-        System.out.println("Camión guardado con patente: " + camion.getPatente());
-        
-        // Ahora asignar los contenedores
-        if (camionDTO.getContenedorIds() != null && !camionDTO.getContenedorIds().isEmpty()) {
-            System.out.println("=== ASIGNANDO CONTENEDORES ===");
-            // Asignar todos los contenedores
-            for (String idContenedor : camionDTO.getContenedorIds()) {
-                Contenedor contenedor = contenedorRepository.findById(idContenedor)
-                        .orElseThrow(() -> new EntityNotFoundException(
-                                "Contenedor no encontrado con ID: " + idContenedor));
-                System.out.println("Contenedor encontrado: " + idContenedor + " - Peso: " + contenedor.getPeso() + " - Volumen: " + contenedor.getVolumen());
-                contenedor.setCamion(camion);
-                contenedorRepository.save(contenedor);
-            }
-            
             // IMPORTANTE: Obtener la lista actualizada de contenedores desde el repositorio
             List<Contenedor> contenedoresCargados = contenedorRepository.findByCamionPatente(camion.getPatente());
             System.out.println("Contenedores cargados: " + contenedoresCargados.size());
@@ -94,11 +74,12 @@ public class CamionService {
             // Si la validación pasa y hay contenedores asignados, marcar como no disponible
             camion.setDisponibilidad(false);
             camion = camionRepository.save(camion);
+
+            // recargar la entidad
+            saved = camionRepository.findById(saved.getPatente()).orElse(saved);
         }
-        
-        // Refrescar una vez más para asegurar que tenemos todos los datos actualizados con contenedores
-        return camionRepository.findWithContenedoresByPatente(camion.getPatente())
-                .orElse(camion);
+
+        return saved;
     }
 
     @Transactional
