@@ -69,6 +69,3 @@ spring:
           uri: http://servicio-tarifa:8083
           predicates:
             - Path=/servicio-tarifa/v3/api-docs, /servicio-tarifa/swagger-ui/**
-
-# 4. Configuración del Cliente JWT (Keycloak)
-# (la configuración JWT ya está definida arriba en el bloque `spring`)

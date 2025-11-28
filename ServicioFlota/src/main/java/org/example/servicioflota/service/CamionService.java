@@ -34,7 +34,21 @@ public class CamionService {
         Camion camion = new Camion();
         convertDtoToEntity(camionDTO, camion);
         actualizarCostoBaseDesdeTarifa(camion);
-        return camionRepository.save(camion);
+        Camion saved = camionRepository.save(camion);
+
+        // Si el DTO trae contenedorIds, asignarlos al camión
+        if (camionDTO.getContenedorIds() != null && !camionDTO.getContenedorIds().isEmpty()) {
+            for (String idContenedor : camionDTO.getContenedorIds()) {
+                Contenedor contenedor = contenedorRepository.findById(idContenedor)
+                        .orElseThrow(() -> new EntityNotFoundException("Contenedor no encontrado con id: " + idContenedor));
+                contenedor.setCamion(saved);
+                contenedorRepository.save(contenedor);
+            }
+            // recargar la entidad
+            saved = camionRepository.findById(saved.getPatente()).orElse(saved);
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -45,7 +59,19 @@ public class CamionService {
         convertDtoToEntity(camionDTO, camion);
         actualizarCostoBaseDesdeTarifa(camion);
 
-        return camionRepository.save(camion);
+        Camion saved = camionRepository.save(camion);
+
+        if (camionDTO.getContenedorIds() != null && !camionDTO.getContenedorIds().isEmpty()) {
+            for (String idContenedor : camionDTO.getContenedorIds()) {
+                Contenedor contenedor = contenedorRepository.findById(idContenedor)
+                        .orElseThrow(() -> new EntityNotFoundException("Contenedor no encontrado con id: " + idContenedor));
+                contenedor.setCamion(saved);
+                contenedorRepository.save(contenedor);
+            }
+            saved = camionRepository.findById(saved.getPatente()).orElse(saved);
+        }
+
+        return saved;
     }
 
     @Transactional(readOnly = true)

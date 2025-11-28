@@ -22,6 +22,9 @@ public class DepositoController {
     @Autowired
     private DepositoService depositoService;
 
+    @Autowired
+    private org.example.servicioflota.repository.ContenedorRepository contenedorRepository;
+
     @GetMapping
     public ResponseEntity<List<DepositoDTO>> getAllDepositos() {
         List<Deposito> depositos = depositoService.findAllDepositos();
@@ -43,6 +46,12 @@ public class DepositoController {
     public ResponseEntity<DepositoDTO> createDeposito(@RequestBody DepositoDTO depositoDTO) {
         Deposito deposito = convertToEntity(depositoDTO);
         Deposito nuevoDeposito = depositoService.saveDeposito(deposito);
+
+        // Si el DTO trae contenedorIds, asignarlos al depósito recién creado
+        if (depositoDTO.getContenedorIds() != null && !depositoDTO.getContenedorIds().isEmpty()) {
+            nuevoDeposito = depositoService.assignContenedoresToDeposito(nuevoDeposito.getIdDeposito(), depositoDTO.getContenedorIds());
+        }
+
         return new ResponseEntity<>(convertToDto(nuevoDeposito), HttpStatus.CREATED);
     }
 
@@ -89,10 +98,16 @@ public class DepositoController {
         dto.setDireccion(deposito.getDireccion());
         dto.setLatitud(deposito.getLatitud());
         dto.setLongitud(deposito.getLongitud());
-        if (deposito.getContenedores() != null) {
+        if (deposito.getContenedores() != null && !deposito.getContenedores().isEmpty()) {
             dto.setContenedorIds(deposito.getContenedores().stream()
                     .map(Contenedor::getIdContenedor)
                     .collect(Collectors.toList()));
+        } else if (deposito.getIdDeposito() != null) {
+            // Si la colección no está inicializada, consultamos el repositorio
+            List<Contenedor> conts = contenedorRepository.findByDeposito_IdDeposito(deposito.getIdDeposito());
+            if (conts != null && !conts.isEmpty()) {
+                dto.setContenedorIds(conts.stream().map(Contenedor::getIdContenedor).collect(Collectors.toList()));
+            }
         }
         return dto;
     }

@@ -40,7 +40,10 @@ public class RutaService {
     private final OsrmService osrmService;
     private final CalcularCostosService calcularCostosService;
     private final SolicitudService solicitudService;
-    private static final double DESVIO_MAXIMO_KM = 300.0;
+        private static final double DESVIO_MAXIMO_KM = 300.0;
+
+        @org.springframework.beans.factory.annotation.Value("${estimacion.velocidad.kmh:60}")
+        private double velocidadPromedioKmh;
 
     @Autowired
     public RutaService(SolicitudRepository solicitudRepository,
@@ -249,7 +252,7 @@ public class RutaService {
     private RutaTentativaDTO generarRutaDirecta(Solicitud solicitud, Ubicacion origen,
                                                 Ubicacion destino, double distancia) {
         double costoEstadia = 0.0;
-        double costoTramo = calcularCostosService.calcularCostoTramo(distancia, costoEstadia);
+        double costoTramo = calcularCostosService.calcularCostoTramo(distancia, costoEstadia, solicitud.getPeso(), solicitud.getVolumen());
 
         TramoResponseDTO tramoUnico = TramoResponseDTO.builder()
                 .origen(mapToUbicacionResponse(origen))
@@ -278,8 +281,8 @@ public class RutaService {
 
             double costoEstadia = 5000.0; // Costo fijo de estadía
 
-            double costoTramo1 = calcularCostosService.calcularCostoTramo(distTramo1, costoEstadia);
-            double costoTramo2 = calcularCostosService.calcularCostoTramo(distTramo2, 0.0);
+            double costoTramo1 = calcularCostosService.calcularCostoTramo(distTramo1, costoEstadia, solicitud.getPeso(), solicitud.getVolumen());
+            double costoTramo2 = calcularCostosService.calcularCostoTramo(distTramo2, 0.0, solicitud.getPeso(), solicitud.getVolumen());
 
             TramoResponseDTO tramo1 = TramoResponseDTO.builder()
                     .origen(mapToUbicacionResponse(origen))
@@ -333,9 +336,9 @@ public class RutaService {
             double costoEstadia = 5000.0; // Costo por depósito
 
             // Calcular costos de cada tramo (incluye estadía en los depósitos intermedios)
-            double costoTramo1 = calcularCostosService.calcularCostoTramo(distTramo1, costoEstadia);
-            double costoTramo2 = calcularCostosService.calcularCostoTramo(distTramo2, costoEstadia);
-            double costoTramo3 = calcularCostosService.calcularCostoTramo(distTramo3, 0.0);
+            double costoTramo1 = calcularCostosService.calcularCostoTramo(distTramo1, costoEstadia, solicitud.getPeso(), solicitud.getVolumen());
+            double costoTramo2 = calcularCostosService.calcularCostoTramo(distTramo2, costoEstadia, solicitud.getPeso(), solicitud.getVolumen());
+            double costoTramo3 = calcularCostosService.calcularCostoTramo(distTramo3, 0.0, solicitud.getPeso(), solicitud.getVolumen());
 
             // Construir DTOs de tramos
             TramoResponseDTO tramo1 = TramoResponseDTO.builder()
@@ -433,10 +436,22 @@ public class RutaService {
                 .count();
     }
 
-    private String calcularTiempoEstimado(List<Tramo> tramos) {
-        int dias = tramos.size() * 2; // 2 días por tramo
-        return dias + " días";
-    }
+        private String calcularTiempoEstimado(List<Tramo> tramos) {
+                double distanciaTotal = tramos.stream()
+                                .mapToDouble(t -> t.getDistanciaKmEstimada() != null ? t.getDistanciaKmEstimada() : 0.0)
+                                .sum();
+
+                if (distanciaTotal <= 0.0) {
+                        int diasFallback = Math.max(1, tramos.size() * 2);
+                        return diasFallback + " días";
+                }
+
+                double horas = distanciaTotal / (velocidadPromedioKmh > 0 ? velocidadPromedioKmh : 60.0);
+                // Consideramos jornada de 8 horas por día
+                int diasEstimados = (int) Math.ceil(horas / 8.0);
+                if (diasEstimados < 1) diasEstimados = 1;
+                return diasEstimados + " días";
+        }
 
     private Solicitud findSolicitud(Long numSolicitud) {
         return solicitudRepository.findByIdWithUbicacionesAndTipos(numSolicitud)

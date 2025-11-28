@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Comparator;
 import java.util.stream.Collectors;
 
 @RestController
@@ -62,8 +63,9 @@ public class ContenedorController {
         }
         if (contenedor.getCambiosEstado() != null) {
             dto.setCambiosEstadoIds(contenedor.getCambiosEstado().stream()
-                    .map(CambioEstado::getIdCambioEstado)
-                    .collect(Collectors.toList()));
+                .sorted(Comparator.comparing(CambioEstado::getFechaInicio))
+                .map(CambioEstado::getIdCambioEstado)
+                .collect(Collectors.toList()));
         }
         dto.setEstadoActual(contenedor.getEstadoActual());
         return dto;
