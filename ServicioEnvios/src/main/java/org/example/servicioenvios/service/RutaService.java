@@ -161,8 +161,36 @@ public class RutaService {
 
         // Actualizar solicitud con la ruta seleccionada
         solicitud.setRuta(rutaSeleccionada);
-        
-        // Calcular costos y tiempos desde los tramos de la ruta
+                // --- ASIGNAR FECHAS ESTIMADAS A CADA TRAMO ---
+                // Base de inicio: fecha de creación de la solicitud o ahora
+                java.time.LocalDateTime inicioBase = solicitud.getFechaCreacion() != null ? solicitud.getFechaCreacion() : java.time.LocalDateTime.now();
+                double tiempoManejoPorParadaHoras = 2.0; // horas por parada (carga/descarga) - configurable si se desea
+
+                for (Tramo tramo : rutaSeleccionada.getTramos()) {
+                        // Duración estimada del tramo en horas según distancia y velocidad promedio
+                        double distancia = tramo.getDistanciaKmEstimada() != null ? tramo.getDistanciaKmEstimada() : 0.0;
+                        double horasViaje = distancia / (velocidadPromedioKmh > 0 ? velocidadPromedioKmh : 60.0);
+                        long minutosViaje = Math.max(1, (long) Math.round(horasViaje * 60));
+
+                        java.time.LocalDateTime inicioEstimado = inicioBase;
+                        java.time.LocalDateTime finEstimado = inicioEstimado.plusMinutes(minutosViaje);
+
+                        tramo.setFechaHoraInicioEstimada(inicioEstimado);
+                        tramo.setFechaHoraFinEstimada(finEstimado);
+
+                        // Avanzar la base: finEstimado + tiempo de manejo en minutos
+                        long minutosManejo = (long) Math.round(tiempoManejoPorParadaHoras * 60);
+                        inicioBase = finEstimado.plusMinutes(minutosManejo);
+                }
+
+                // Persistir cambios en tramos (asegurar que las fechas estimadas queden en BD)
+                try {
+                        tramoRepository.saveAll(rutaSeleccionada.getTramos());
+                } catch (Exception e) {
+                        log.warn("No se pudieron persistir fechas estimadas de tramos: {}", e.getMessage());
+                }
+
+                // Calcular costos y tiempos desde los tramos de la ruta
         Double costoTotal = rutaSeleccionada.getTramos().stream()
                 .mapToDouble(tramo -> {
                     double costo = tramo.getCostoEstimado() != null ? tramo.getCostoEstimado() : 0.0;
