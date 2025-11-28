@@ -38,7 +38,7 @@ public class ContenedorController {
         @ApiResponse(responseCode = "403", description = "Acceso denegado: requiere rol ADMINISTRADOR")
     })
     @PostMapping
-    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMINISTRADOR')")
     public ResponseEntity<ContenedorDTO> createContenedor(
             @Parameter(description = "Datos del contenedor a crear", required = true)
             @RequestBody ContenedorDTO contenedorDTO) {
