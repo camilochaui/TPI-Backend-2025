@@ -16,5 +16,6 @@ public class RutaResponseDTO {
     private Long idRuta;
     private Integer cantidadTramos;
     private Integer cantidadDepositos;
-    private List<TramoResponseDTO> tramos; // Lista de tramos anidada
+    private Double distanciaTotalKmEstimada;
+    private List<TramoResponseDTO> tramos;
 }

@@ -6,6 +6,7 @@ import org.example.servicioenvios.entity.EstadoTramo;
 import org.example.servicioenvios.dto.feign.CamionDTO;
 import org.example.servicioenvios.dto.feign.TransportistaDTO;
 import org.example.servicioenvios.dto.request.AsignarCamionRequestDTO;
+import org.example.servicioenvios.dto.response.AsignacionCamionResponseDTO;
 import org.example.servicioenvios.dto.response.TramoResponseDTO;
 import org.example.servicioenvios.dto.response.UbicacionResponseDTO;
 import org.example.servicioenvios.entity.Solicitud;
@@ -51,7 +52,7 @@ public class TramoService {
 
     // Asignar camión a un tramo
     @Transactional
-    public TramoResponseDTO asignarCamionATramo(Long idTramo, AsignarCamionRequestDTO requestDTO) {
+    public AsignacionCamionResponseDTO asignarCamionATramo(Long idTramo, AsignarCamionRequestDTO requestDTO) {
 
         String patente = requestDTO.getPatenteCamion();
         log.info("Asignando camión {} al tramo {}", patente, idTramo);
@@ -108,7 +109,12 @@ public class TramoService {
         Tramo tramoActualizado = tramoRepository.save(tramo);
 
         log.info("Camión {} asignado y vinculado exitosamente al tramo {}", patente, idTramo);
-        return mapToTramoResponse(tramoActualizado);
+        
+        return AsignacionCamionResponseDTO.builder()
+                .idTramo(tramoActualizado.getIdTramo())
+                .estadoTramo(tramoActualizado.getEstadoTramo().name())
+                .patenteCamionExt(tramoActualizado.getPatenteCamionExt())
+                .build();
     }
 
     // Obtener tramos de un transportista

@@ -8,6 +8,8 @@ server:
 spring:
   application:
     name: servicio-envios
+  jackson:
+    default-property-inclusion: non_null
 
   cloud:
     config:

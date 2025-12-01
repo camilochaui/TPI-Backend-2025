@@ -39,8 +39,9 @@ public class SolicitudController {
         this.calcularCostosService = calcularCostosService;
     }
 
-    @PostMapping
-    @Operation(summary = "Registrar una nueva solicitud de envío")
+    @PostMapping("/nueva_solicitud")
+    @Operation(summary = "Registrar una nueva solicitud de envío", 
+               description = "Crea una nueva solicitud generando automáticamente un ID único para el contenedor")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Solicitud creada exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos inválidos en la solicitud")
@@ -48,13 +49,16 @@ public class SolicitudController {
     @PreAuthorize("hasAnyRole('CLIENTE','ADMINISTRADOR')")
     public ResponseEntity<SolicitudResponseDTO> registrarNuevaSolicitud(
             @Valid @RequestBody SolicitudRequestDTO dto) {
-        log.info("Recibida nueva solicitud de envío para contenedor {}", dto.getIdContenedor());
+        log.info("Recibida nueva solicitud de envío para cliente {} {}", 
+                dto.getNombreCliente(), dto.getApellidoCliente());
         try {
             SolicitudResponseDTO respuesta = solicitudService.registrarNuevaSolicitud(dto);
-            log.info("Solicitud creada exitosamente con ID: {}", respuesta.getNumSolicitud());
+            log.info("Solicitud creada exitosamente con ID: {} - Contenedor: {}", 
+                    respuesta.getNumSolicitud(), respuesta.getIdContenedorExt());
             return ResponseEntity.status(HttpStatus.CREATED).body(respuesta);
         } catch (Exception e) {
-            log.error("Error al crear solicitud para contenedor {}: {}", dto.getIdContenedor(), e.getMessage());
+            log.error("Error al crear solicitud para cliente {} {}: {}", 
+                    dto.getNombreCliente(), dto.getApellidoCliente(), e.getMessage());
             throw e;
         }
     }
@@ -75,7 +79,7 @@ public class SolicitudController {
     }
 
     @Operation(summary = "Obtener listado de solicitudes")
-    @GetMapping
+    @GetMapping("/solicitudes")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<List<SolicitudResponseDTO>> obtenerSolicitudes(
             @RequestParam(required = false) EstadoSolicitud estado) {
@@ -86,7 +90,7 @@ public class SolicitudController {
 
 
     @Operation(summary = "Obtener solicitud por ID")
-    @GetMapping("/{numSolicitud}")
+    @GetMapping("/solicitud/{numSolicitud}")
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMINISTRADOR')")
     public ResponseEntity<SolicitudResponseDTO> obtenerSolicitud(@PathVariable Long numSolicitud) {
         log.info("Consultando solicitud ID: {}", numSolicitud);
@@ -96,7 +100,7 @@ public class SolicitudController {
 
 
     @Operation(summary = "Actualizar estado de una solicitud")
-    @PutMapping("/{numSolicitud}/estado")
+    @PutMapping("/solicitud/{numSolicitud}/estado")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
 
     public ResponseEntity<SolicitudResponseDTO> cambiarEstado(
@@ -107,7 +111,7 @@ public class SolicitudController {
         return ResponseEntity.ok(respuesta);
     }
 
-    @PostMapping("/{numSolicitud}/calculo")
+    @PostMapping("/solicitud/{numSolicitud}/calculo")
     @Operation(summary = "Calcular costo de una solicitud")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Costo calculado exitosamente"),
@@ -119,10 +123,10 @@ public class SolicitudController {
         log.info("Calculando costo para solicitud {}", numSolicitud);
 
         try {
-            // 1. Obtener Solicitud: Se usa el numSolicitud desde el endpoint.
+            // Obtener numSolicitud desde el endpoint.
             Solicitud solicitud = solicitudService.obtenerSolicitudEntityPorId(numSolicitud);
 
-            // 2. Calcular costo: Se lleva el objeto Solicitud como parametro.
+            // Calcular costo
             CotizacionResponseDTO cotizacion = calcularCostosService.calcularCostoSolicitud(solicitud);
             log.info("Costo calculado para solicitud {}: ${}", numSolicitud, cotizacion.getCostoTotal());
             return ResponseEntity.ok(cotizacion);
@@ -132,7 +136,7 @@ public class SolicitudController {
         }
     }
 
-    @GetMapping("/{numSolicitud}/distancia-total")
+    @GetMapping("/solicitud/{numSolicitud}/distancia-total")
     @Operation(summary = "Obtener distancia total de todos los tramos de una solicitud")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Distancia total calculada exitosamente"),
@@ -161,7 +165,7 @@ public class SolicitudController {
         }
     }
 
-    @PostMapping("/{numSolicitud}/finalizar")
+    @PostMapping("/solicitud/{numSolicitud}/finalizar")
     @Operation(summary = "Finalizar solicitud calculando costo y tiempo real")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Solicitud finalizada exitosamente"),

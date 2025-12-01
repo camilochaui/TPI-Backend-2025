@@ -22,7 +22,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/rutas")
+@RequestMapping("/api/v1/rutas_tentativas")
 @Tag(name = "Gestión de Rutas (ADMINISTRADOR)", description = "Endpoints para consultar y asignar rutas a solicitudes")
 public class RutaController {
 
@@ -38,7 +38,7 @@ public class RutaController {
                         @ApiResponse(responseCode = "200", description = "Rutas tentativas generadas"),
                         @ApiResponse(responseCode = "404", description = "Solicitud no encontrada")
         })
-        @GetMapping("/tentativas/{numSolicitud}")
+        @GetMapping("/solicitud/{numSolicitud}")
         public ResponseEntity<List<RutaTentativaDTO>> consultarRutasTentativas(
                         @PathVariable Long numSolicitud) {
                 log.info("Consultando rutas tentativas para solicitud {}", numSolicitud);
@@ -52,7 +52,7 @@ public class RutaController {
                         @ApiResponse(responseCode = "404", description = "Solicitud no encontrada"),
                         @ApiResponse(responseCode = "400", description = "Datos inválidos")
         })
-        @PostMapping("/asignacion/{numSolicitud}/{rutaId}")
+        @PutMapping("/{rutaId}/solicitud/{numSolicitud}")
         public ResponseEntity<SolicitudResponseDTO> seleccionarRuta(
                         @PathVariable Long numSolicitud,
                         @PathVariable Long rutaId) {

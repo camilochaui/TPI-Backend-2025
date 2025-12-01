@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.example.servicioenvios.dto.request.AsignarCamionRequestDTO;
-import org.example.servicioenvios.dto.response.TramoResponseDTO;
+import org.example.servicioenvios.dto.response.AsignacionCamionResponseDTO;
 import org.example.servicioenvios.service.TramoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/tramos")
+@RequestMapping("/api/v1/tramo")
 @Tag(name = "Gestión de Tramos (Admin)", description = "Endpoints para que el Admin gestione los tramos")
 public class TramoAdminController {
 
@@ -41,14 +41,14 @@ public class TramoAdminController {
     })
     @PostMapping("/{idTramo}/camion-asignacion")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public ResponseEntity<TramoResponseDTO> asignarCamion(
+    public ResponseEntity<AsignacionCamionResponseDTO> asignarCamion(
             @PathVariable Long idTramo,
             @Valid @RequestBody AsignarCamionRequestDTO requestDTO) {
         log.info("Recibida solicitud de Admin para asignar camión {} al tramo {}",
                 requestDTO.getPatenteCamion(), idTramo);
 
-        TramoResponseDTO tramoActualizado = tramoService.asignarCamionATramo(idTramo, requestDTO);
+        AsignacionCamionResponseDTO resultado = tramoService.asignarCamionATramo(idTramo, requestDTO);
 
-        return ResponseEntity.ok(tramoActualizado);
+        return ResponseEntity.ok(resultado);
     }
 }

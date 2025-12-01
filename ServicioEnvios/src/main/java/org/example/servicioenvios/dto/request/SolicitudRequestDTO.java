@@ -41,12 +41,11 @@ public class SolicitudRequestDTO {
     private Integer alturaCliente;
 
     @NotNull(message = "El ID de la ciudad del cliente es obligatorio")
-    private Long idCiudadCliente; // <-- ¡EL CAMPO QUE FALTABA!
+    private Long idCiudadCliente;
 
     // --- Datos del Contenedor ---
-    @NotBlank(message = "La identificación única del contenedor es obligatoria")
-    private String idContenedor;
-
+    // El ID del contenedor se genera automáticamente como: nombreCliente + apellidoCliente + índice
+    
     @NotNull(message = "El peso es obligatorio")
     @Positive(message = "El peso debe ser positivo")
     private Double peso;

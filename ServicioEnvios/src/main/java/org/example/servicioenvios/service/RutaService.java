@@ -70,9 +70,7 @@ public class RutaService {
     public List<RutaTentativaDTO> consultarRutasTentativas(Long numSolicitud) {
         Solicitud solicitud = findSolicitud(numSolicitud);
 
-
-                // Obtener origen y destino desde las ubicaciones de la solicitud
-        // Los tipos en DB usan guión bajo (CLIENTE-ORIGEN, CLIENTE-DESTINO)
+        // Obtener origen y destino desde las ubicaciones de la solicitud
         Ubicacion origen = solicitud.getUbicaciones().stream()
                 .filter(u -> "CLIENTE-ORIGEN".equals(u.getTipo().getNombre()))
                 .findFirst()
@@ -139,7 +137,7 @@ public class RutaService {
     }
 
     @Transactional
-    public SolicitudResponseDTO seleccionarRuta(Long numSolicitud, Long rutaId) {
+    public SolicitudResponseDTO seleccionarRuta(Long numSolicitud, Long idRutaTentativa) {
         Solicitud solicitud = findSolicitud(numSolicitud);
 
         // Validar estado de la solicitud
@@ -148,64 +146,90 @@ public class RutaService {
                     "Solo se pueden asignar rutas a solicitudes en estado BORRADOR");
         }
 
-        // Buscar la ruta a asignar
-        Ruta rutaSeleccionada = rutaRepository.findById(rutaId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No se encontró la ruta con ID " + rutaId));
+        // 1. Regenerar rutas tentativas (no se guardan en BD, se calculan al vuelo)
+        List<RutaTentativaDTO> rutasTentativas = consultarRutasTentativas(numSolicitud);
 
-        // Validar que la ruta pertenece a la solicitud
-        if (!rutaSeleccionada.getSolicitud().getNumSolicitud().equals(numSolicitud)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La ruta " + rutaId + " no pertenece a la solicitud " + numSolicitud);
+        // 2. Buscar la ruta tentativa seleccionada por ID
+        RutaTentativaDTO rutaTentativaSeleccionada = rutasTentativas.stream()
+                .filter(r -> r.getIdRutaTentativa() == idRutaTentativa.intValue())
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No se encontró la ruta tentativa con ID " + idRutaTentativa));
+
+        log.info("Ruta tentativa seleccionada: {} - {} tramos - Costo: ${}", 
+                rutaTentativaSeleccionada.getDescripcion(),
+                rutaTentativaSeleccionada.getCantidadTramos(),
+                rutaTentativaSeleccionada.getCostoTotalEstimado());
+
+        // 3. Persistir la ruta seleccionada como entidad Ruta en BD
+        Ruta nuevaRuta = Ruta.builder()
+                .solicitud(solicitud)
+                .cantidadTramos(rutaTentativaSeleccionada.getCantidadTramos())
+                .cantidadDepositos(calcularCantidadDepositos(rutaTentativaSeleccionada))
+                .build();
+        
+        nuevaRuta = rutaRepository.save(nuevaRuta);
+        log.info("Ruta persistida con ID: {}", nuevaRuta.getIdRuta());
+
+        // 4. Persistir los tramos asociados
+        List<Tramo> tramosEntidades = new ArrayList<>();
+        int orden = 1;
+        
+        for (TramoResponseDTO tramoDTO : rutaTentativaSeleccionada.getTramos()) {
+            // Obtener o crear ubicaciones de origen/destino
+            Ubicacion origenUbic = obtenerOCrearUbicacionParaTramo(tramoDTO.getOrigen(), solicitud);
+            Ubicacion destinoUbic = obtenerOCrearUbicacionParaTramo(tramoDTO.getDestino(), solicitud);
+
+            Tramo tramo = Tramo.builder()
+                    .ruta(nuevaRuta)
+                    .orden(orden++)
+                    .origen(origenUbic)
+                    .destino(destinoUbic)
+                    .estadoTramo(EstadoTramo.PENDIENTE)
+                    .distanciaKmEstimada(tramoDTO.getDistanciaKmEstimada())
+                    .costoEstimado(tramoDTO.getCostoEstimado())
+                    .costoEstadiaDeposito(tramoDTO.getCostoEstadiaDeposito())
+                    .build();
+            
+            tramosEntidades.add(tramo);
         }
 
-        // Actualizar solicitud con la ruta seleccionada
-        solicitud.setRuta(rutaSeleccionada);
-                // --- ASIGNAR FECHAS ESTIMADAS A CADA TRAMO ---
-                // Base de inicio: fecha de creación de la solicitud o ahora
-                java.time.LocalDateTime inicioBase = solicitud.getFechaCreacion() != null ? solicitud.getFechaCreacion() : java.time.LocalDateTime.now();
-                double tiempoManejoPorParadaHoras = 2.0; // horas por parada (carga/descarga) - configurable si se desea
+        tramosEntidades = tramoRepository.saveAll(tramosEntidades);
+        log.info("Persistidos {} tramos para la ruta {}", tramosEntidades.size(), nuevaRuta.getIdRuta());
 
-                for (Tramo tramo : rutaSeleccionada.getTramos()) {
-                        // Duración estimada del tramo en horas según distancia y velocidad promedio
-                        double distancia = tramo.getDistanciaKmEstimada() != null ? tramo.getDistanciaKmEstimada() : 0.0;
-                        double horasViaje = distancia / (velocidadPromedioKmh > 0 ? velocidadPromedioKmh : 60.0);
-                        long minutosViaje = Math.max(1, (long) Math.round(horasViaje * 60));
+        // 5. Asignar fechas estimadas a cada tramo
+        LocalDateTime inicioBase = solicitud.getFechaCreacion() != null ? 
+                solicitud.getFechaCreacion() : LocalDateTime.now();
+        double tiempoManejoPorParadaHoras = 2.0;
 
-                        java.time.LocalDateTime inicioEstimado = inicioBase;
-                        java.time.LocalDateTime finEstimado = inicioEstimado.plusMinutes(minutosViaje);
+        for (Tramo tramo : tramosEntidades) {
+            double distancia = tramo.getDistanciaKmEstimada() != null ? tramo.getDistanciaKmEstimada() : 0.0;
+            double horasViaje = distancia / (velocidadPromedioKmh > 0 ? velocidadPromedioKmh : 60.0);
+            long minutosViaje = Math.max(1, (long) Math.round(horasViaje * 60));
 
-                        tramo.setFechaHoraInicioEstimada(inicioEstimado);
-                        tramo.setFechaHoraFinEstimada(finEstimado);
+            LocalDateTime inicioEstimado = inicioBase;
+            LocalDateTime finEstimado = inicioEstimado.plusMinutes(minutosViaje);
 
-                        // Avanzar la base: finEstimado + tiempo de manejo en minutos
-                        long minutosManejo = (long) Math.round(tiempoManejoPorParadaHoras * 60);
-                        inicioBase = finEstimado.plusMinutes(minutosManejo);
-                }
+            tramo.setFechaHoraInicioEstimada(inicioEstimado);
+            tramo.setFechaHoraFinEstimada(finEstimado);
 
-                // Persistir cambios en tramos (asegurar que las fechas estimadas queden en BD)
-                try {
-                        tramoRepository.saveAll(rutaSeleccionada.getTramos());
-                } catch (Exception e) {
-                        log.warn("No se pudieron persistir fechas estimadas de tramos: {}", e.getMessage());
-                }
+            long minutosManejo = (long) Math.round(tiempoManejoPorParadaHoras * 60);
+            inicioBase = finEstimado.plusMinutes(minutosManejo);
+        }
 
-                // Calcular costos y tiempos desde los tramos de la ruta
-        Double costoTotal = rutaSeleccionada.getTramos().stream()
-                .mapToDouble(tramo -> {
-                    double costo = tramo.getCostoEstimado() != null ? tramo.getCostoEstimado() : 0.0;
-                    double estadiaDeposito = tramo.getCostoEstadiaDeposito() != null ? tramo.getCostoEstadiaDeposito() : 0.0;
-                    return costo + estadiaDeposito;
-                })
-                .sum();
-        
-        solicitud.setCostoEstimado(costoTotal);
-        solicitud.setTiempoEstimado(calcularTiempoEstimado(rutaSeleccionada.getTramos()));
+        tramoRepository.saveAll(tramosEntidades);
+
+        // 6. Actualizar solicitud con la ruta y calcular costos/tiempo
+        solicitud.setRuta(nuevaRuta);
+        solicitud.setCostoEstimado(rutaTentativaSeleccionada.getCostoTotalEstimado());
+        solicitud.setTiempoEstimado(calcularTiempoEstimado(tramosEntidades));
         solicitud.setEstadoSolicitud(EstadoSolicitud.PROGRAMADA);
 
         Solicitud solicitudActualizada = solicitudRepository.save(solicitud);
 
-        log.info("Ruta {} asignada exitosamente a solicitud {}", rutaId, numSolicitud);
+        log.info("✅ Ruta tentativa {} asignada exitosamente a solicitud {} como ruta persistida ID {}", 
+                idRutaTentativa, numSolicitud, nuevaRuta.getIdRuta());
+        
         return solicitudService.mapToSolicitudResponse(solicitudActualizada);
     }
 
@@ -442,6 +466,33 @@ public class RutaService {
                 .latitud(dto.getLatitud())
                 .longitud(dto.getLongitud())
                 .tipo(tipo)
+                .build();
+
+        return ubicacionRepository.save(nuevaUbicacion);
+    }
+
+    /**
+     * Obtiene una ubicación existente de la solicitud o crea una nueva si es un depósito intermedio.
+     */
+    private Ubicacion obtenerOCrearUbicacionParaTramo(UbicacionResponseDTO dto, Solicitud solicitud) {
+        // Si ya tiene ID, buscarla directamente (es una ubicación existente de origen/destino)
+        if (dto.getIdUbicacion() != null) {
+            return ubicacionRepository.findById(dto.getIdUbicacion())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Ubicación no encontrada: " + dto.getIdUbicacion()));
+        }
+
+        // Si no tiene ID, es un depósito intermedio que debemos crear
+        TipoUbicacion tipo = tipoUbicacionRepository.findByNombre(dto.getTipoUbicacion())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Tipo de ubicación no encontrado: " + dto.getTipoUbicacion()));
+
+        Ubicacion nuevaUbicacion = Ubicacion.builder()
+                .direccion(dto.getDireccion())
+                .latitud(dto.getLatitud())
+                .longitud(dto.getLongitud())
+                .tipo(tipo)
+                .solicitud(solicitud) // Vincular a la solicitud
                 .build();
 
         return ubicacionRepository.save(nuevaUbicacion);

@@ -5,6 +5,8 @@ server:
 spring:
   application:
     name: api-gateway
+  jackson:
+    default-property-inclusion: non_null
 
   # 2. Seguridad (Keycloak)
   security:

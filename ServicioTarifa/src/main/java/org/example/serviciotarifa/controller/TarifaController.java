@@ -57,7 +57,7 @@ public class TarifaController {
         @ApiResponse(responseCode = "200", description = "Tarifa calculada exitosamente"),
         @ApiResponse(responseCode = "400", description = "Volumen inválido")
     })
-    @GetMapping("/contenedor/{volumen}")
+    @GetMapping("/contenedor/volumen/{volumen}")
     public ResponseEntity<Float> getTarifaBaseKm(
             @Parameter(description = "Volumen del contenedor en m³", required = true, example = "50.0")
             @PathVariable Float volumen) {
@@ -77,7 +77,7 @@ public class TarifaController {
         @ApiResponse(responseCode = "200", description = "Costo de estadía obtenido exitosamente"),
         @ApiResponse(responseCode = "404", description = "Depósito no encontrado")
     })
-    @GetMapping("/estadia/{idDeposito}")
+    @GetMapping("/estadia/deposito/{idDeposito}")
     public ResponseEntity<Float> getCostoEstadia(
             @Parameter(description = "ID del depósito", required = true, example = "1")
             @PathVariable Long idDeposito) {
@@ -99,7 +99,7 @@ public class TarifaController {
         @ApiResponse(responseCode = "404", description = "Depósito no encontrado"),
         @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
-    @PutMapping("/estadia/{idDeposito}")
+    @PutMapping("/estadia/deposito/{idDeposito}")
     public ResponseEntity<Void> actualizarTarifaEstadia(
             @Parameter(description = "ID del depósito", required = true, example = "1")
             @PathVariable Long idDeposito,

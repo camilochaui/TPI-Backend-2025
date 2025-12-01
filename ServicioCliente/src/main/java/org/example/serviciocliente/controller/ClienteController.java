@@ -40,7 +40,7 @@ public class ClienteController {
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos"),
             @ApiResponse(responseCode = "409", description = "Conflicto (DNI o Email ya existen)")
     })
-    @PostMapping("/registro")
+    @PostMapping("/registrar")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public ResponseEntity<ClienteResponseDTO> registrarCliente(@Valid @RequestBody ClienteRequestDTO dto) {
         log.info("Solicitud de registro para cliente con DNI {}", dto.getDni());
@@ -98,14 +98,13 @@ public class ClienteController {
     // "registrar el cliente si no existe"
     // Endpoint interno para ServicioEnvios
 
-    @Operation(summary = "Registrar u obtener cliente (Para ServicioEnvios)", description = "Endpoint interno para ServicioEnvios. Registra cliente nuevo o retorna existente.")
+    @Operation(summary = "Registrar u obtener cliente (Para ServicioEnvios)", description = "Endpoint interno para ServicioEnvios. Registra cliente nuevo o retorna existente. Sin restricción de roles para uso entre servicios.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Cliente obtenido/registrado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos")
     })
 
     @PostMapping("/solicitud")
-    @PreAuthorize("hasRole('CLIENTE') or hasRole('ADMINISTRADOR')")
     public ResponseEntity<ClienteResponseDTO> registrarOObtenerCliente(
             @Valid @RequestBody ClienteRequestDTO dto) {
         log.info("Solicitud de registro/obtención para cliente con DNI {}", dto.getDni());

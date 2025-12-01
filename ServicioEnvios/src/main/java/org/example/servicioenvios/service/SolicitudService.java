@@ -62,12 +62,11 @@ public class SolicitudService {
     // A) REGISTRAR UNA NUEVA SOLICITUD DE TRANSPORTE DE CONTENEDOR: RegistrarNuevaSolicitud.
     @Transactional
     public SolicitudResponseDTO registrarNuevaSolicitud(SolicitudRequestDTO dto) {
-        log.info("Iniciando registro de solicitud para contenedor {}", dto.getIdContenedor());
+        log.info("Iniciando registro de solicitud para contenedor nuevo");
 
-        // 1. Validar contenedor
-        if (solicitudRepository.findByIdContenedorExt(dto.getIdContenedor()).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "El contenedor ya posee una solicitud activa");
-        }
+        // 1. Generar ID de contenedor único: nombreCliente + apellidoCliente + índice
+        String idContenedor = generarIdContenedor(dto.getNombreCliente(), dto.getApellidoCliente());
+        log.info("ID de contenedor generado: {}", idContenedor);
 
         // 2. Registrar/obtener cliente
         ClienteRegistroRequestDTO clienteRequest = mapToClienteRegistroRequest(dto);
@@ -75,15 +74,16 @@ public class SolicitudService {
         try {
             clienteRegistrado = clienteFeignClient.registrarOObtenerCliente(clienteRequest);
         } catch (Exception e) {
+            log.error("Error al llamar a ServicioCliente: {} - {}", e.getClass().getName(), e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "No se pudo validar al cliente, el servicio no está disponible.");
+                    "No se pudo validar al cliente, el servicio no está disponible. Error: " + e.getMessage());
         }
 
         // 3. Crear contenedor en ServicioFlota
         ContenedorResponseDTO contenedorCreado;
         try {
             contenedorCreado = flotaFeignClient.crearContenedor(
-                    mapToContenedorCreacionRequest(dto, clienteRegistrado.getIdCliente()));
+                    mapToContenedorCreacionRequest(dto, clienteRegistrado.getIdCliente(), idContenedor));
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "No se pudo crear el contenedor, el servicio de Flota no está disponible.");
@@ -92,7 +92,7 @@ public class SolicitudService {
         // 4. Crear solicitud
         Solicitud nuevaSolicitud = Solicitud.builder()
                 .idClienteExt(clienteRegistrado.getIdCliente())
-                .idContenedorExt(dto.getIdContenedor())
+                .idContenedorExt(idContenedor)
                 .peso(dto.getPeso())
                 .volumen(dto.getVolumen())
                 .estadoSolicitud(EstadoSolicitud.BORRADOR)
@@ -107,62 +107,12 @@ public class SolicitudService {
         Ubicacion destino = crearUbicacion(solicitudGuardada, dto.getDestinoDireccion(),
                 dto.getDestinoLatitud(), dto.getDestinoLongitud(), "CLIENTE-DESTINO");
 
-        // 6. Crear ruta y tramo
-        Ruta rutaNueva = Ruta.builder()
-                .solicitud(solicitudGuardada)
-                .cantidadTramos(1)
-                .cantidadDepositos(0)
-                .build();
-        rutaNueva = rutaRepository.save(rutaNueva);
+        // 6. No crear ruta ni tramos en esta etapa; el administrador los asignará luego
+        log.info("Solicitud {} creada sin ruta asignada (BORRADOR). El administrador definirá la ruta luego.",
+                solicitudGuardada.getNumSolicitud());
 
-        double distanciaKm = calcularDistanciaKm(origen.getLatitud(), origen.getLongitud(),
-                destino.getLatitud(), destino.getLongitud());
-
-        Tramo tramo = Tramo.builder()
-                .ruta(rutaNueva)
-                .orden(1)
-                .origen(origen)
-                .destino(destino)
-                .estadoTramo(EstadoTramo.PENDIENTE)
-                .distanciaKmEstimada(distanciaKm)
-                .costoEstimado(0.0)
-                .build();
-        tramo = tramoRepository.save(tramo);
-
-                // Usar lista modificable para evitar UnsupportedOperationException de Hibernate (List.of crea lista inmutable)
-                if (rutaNueva.getTramos() == null) {
-                        rutaNueva.setTramos(new ArrayList<>());
-                }
-                rutaNueva.getTramos().clear(); // asegurar estado consistente si viene con elementos previos
-                rutaNueva.getTramos().add(tramo);
-                rutaRepository.save(rutaNueva);
-
-        // Sincronizar lado inverso de la relación one-to-one para que getRuta() no sea null en la entidad Solicitud.
-        solicitudGuardada.setRuta(rutaNueva);
-        solicitudRepository.save(solicitudGuardada);
-
-        // 7. Forzar recarga de solicitud con ruta y tramos (use findById y acceder a tramos para inicializar LAZY)
-        Solicitud solicitudFinal = solicitudRepository.findById(solicitudGuardada.getNumSolicitud())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Solicitud no encontrada después de crear ruta"));
-        // Si las relaciones son LAZY, forzamos su inicialización accediendo a la lista
-        if (solicitudFinal.getRuta() != null && solicitudFinal.getRuta().getTramos() != null) {
-            solicitudFinal.getRuta().getTramos().size();
-        }
-
-        // 8. Calcular costos y tiempo estimado
-        try {
-            CotizacionResponseDTO cotizacion = calcularCostosService.calcularCostoSolicitud(solicitudFinal);
-            solicitudFinal.setCostoEstimado(cotizacion.getCostoTotal());
-            solicitudFinal.setTiempoEstimado(calcularTiempoEstimado(solicitudFinal));
-            solicitudRepository.save(solicitudFinal);
-        } catch (Exception e) {
-            log.warn("No se pudieron calcular costos para solicitud {}: {}", solicitudFinal.getNumSolicitud(),
-                    e.getMessage());
-        }
-
-        // 9. Mapear a DTO de respuesta
-        SolicitudResponseDTO responseDTO = mapToSolicitudResponse(solicitudFinal);
+        // 7. Mapear a DTO de respuesta (sin ruta ni tramos por ahora)
+        SolicitudResponseDTO responseDTO = mapToSolicitudResponse(solicitudGuardada);
         responseDTO.setCliente(clienteRegistrado);
 
         return responseDTO;
@@ -222,8 +172,6 @@ public class SolicitudService {
                 .numSolicitud(entity.getNumSolicitud())
                 .idContenedorExt(entity.getIdContenedorExt())
                 // .idClienteExt(entity.getIdClienteExt()) // Oculto, usamos el objeto 'cliente'
-                .peso(entity.getPeso())
-                .volumen(entity.getVolumen())
                 .estadoSolicitud(entity.getEstadoSolicitud().name())
                 .fechaCreacion(entity.getFechaCreacion())
 
@@ -238,14 +186,45 @@ public class SolicitudService {
     }
 
     private contenedorRequestDTO mapToContenedorCreacionRequest(
-            SolicitudRequestDTO dto, Long idCliente) {
+            SolicitudRequestDTO dto, Long idCliente, String idContenedor) {
 
         return contenedorRequestDTO.builder()
-                .idContenedor(dto.getIdContenedor())
+                .idContenedor(idContenedor)
                 .peso(dto.getPeso().intValue())
                 .volumen(dto.getVolumen().intValue())
                 .idClienteExt(idCliente.intValue())
                 .build();
+    }
+
+//  ID único de contenedor en formato: NombreApellido-índice
+    private String generarIdContenedor(String nombre, String apellido) {
+        // Normalizar nombre y apellido
+        String baseId = normalizarTexto(nombre) + normalizarTexto(apellido);
+        
+        // Buscar contenedores con este prefijo
+        long count = solicitudRepository.countByIdContenedorExtStartingWith(baseId);
+        
+        // Generar ID con índice incrementado
+        return baseId + "-" + (count + 1);
+    }
+
+//     Normaliza texto eliminando espacios, tildes y caracteres especiales
+    private String normalizarTexto(String texto) {
+        if (texto == null) return "";
+        
+        return texto.trim()
+                .replaceAll("\\s+", "")
+                .replaceAll("[áàäâ]", "a")
+                .replaceAll("[éèëê]", "e")
+                .replaceAll("[íìïî]", "i")
+                .replaceAll("[óòöô]", "o")
+                .replaceAll("[úùüû]", "u")
+                .replaceAll("[ÁÀÄÂ]", "A")
+                .replaceAll("[ÉÈËÊ]", "E")
+                .replaceAll("[ÍÌÏÎ]", "I")
+                .replaceAll("[ÓÒÖÔ]", "O")
+                .replaceAll("[ÚÙÜÛ]", "U")
+                .replaceAll("[^a-zA-Z0-9]", "");
     }
 
 
@@ -486,17 +465,31 @@ public class SolicitudService {
         if (ruta == null) {
             return null;
         }
-        return RutaResponseDTO.builder()
+                // Calcular distancia total estimada sumando distancias de los tramos
+                double distanciaTotal = 0.0;
+                List<Tramo> tramos = ruta.getTramos();
+                if (tramos != null) {
+                        for (Tramo t : tramos) {
+                                if (t.getDistanciaKmEstimada() != null) {
+                                        distanciaTotal += t.getDistanciaKmEstimada();
+                                }
+                        }
+                }
+
+                // Si no hay tramos, devolvemos null en lugar de lista vacía para evitar "tramos": []
+                List<TramoResponseDTO> tramosDTO = null;
+                if (tramos != null && !tramos.isEmpty()) {
+                        tramosDTO = tramos.stream()
+                                        .map(this::mapTramoToDTO)
+                                        .collect(Collectors.toList());
+                }
+
+                return RutaResponseDTO.builder()
                 .idRuta(ruta.getIdRuta())
                 .cantidadTramos(ruta.getCantidadTramos())
                 .cantidadDepositos(ruta.getCantidadDepositos())
-                .tramos(
-                        (ruta.getTramos() != null) ?
-                                ruta.getTramos().stream()
-                                        .map(this::mapTramoToDTO)
-                                        .collect(Collectors.toList()) :
-                                new ArrayList<>()
-                )
+                                .distanciaTotalKmEstimada(distanciaTotal > 0.0 ? distanciaTotal : null)
+                                .tramos(tramosDTO)
                 .build();
     }
 

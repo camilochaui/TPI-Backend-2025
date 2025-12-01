@@ -20,7 +20,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/transportista/tramos")
+@RequestMapping("/api/v1/transportista")
 @Tag(name = "Gestión de Tramos (Transportista)", description = "Endpoints para que el Transportista gestione sus viajes")
 @SecurityRequirement(name = "bearerAuth")
 // ¡ADVERTENCIA! Esto solo valida el rol, no que el ID del token coincida con el
@@ -41,7 +41,7 @@ public class TramoTransportistaController {
                         @ApiResponse(responseCode = "200", description = "Lista de tramos obtenida"),
                         @ApiResponse(responseCode = "403", description = "Token inválido o sin el rol requerido")
         })
-        @GetMapping("") // Path cambiado de "/mis-tramos"
+        @GetMapping("/mis_tramos")
         public ResponseEntity<List<TramoResponseDTO>> obtenerTramosPorTransportista(
                         @AuthenticationPrincipal Jwt jwt) {
                 // Extraer el ID del transportista desde el claim del JWT para evitar IDOR
@@ -53,7 +53,7 @@ public class TramoTransportistaController {
         }
 
         @Operation(summary = "Iniciar un tramo propio", description = "El transportista autenticado inicia un tramo asignado a uno de sus camiones.")
-        @PostMapping("/{idTramo}/inicio")
+        @PostMapping("/tramo/{idTramo}/inicio")
         public ResponseEntity<TramoResponseDTO> iniciarTramo(
                         @PathVariable Long idTramo,
                         @AuthenticationPrincipal Jwt jwt) {
@@ -67,7 +67,7 @@ public class TramoTransportistaController {
         }
 
         @Operation(summary = "Finalizar un tramo propio", description = "El transportista autenticado finaliza un tramo asignado a uno de sus camiones.")
-        @PostMapping("/{idTramo}/fin")
+        @PostMapping("/tramo/{idTramo}/fin")
         public ResponseEntity<TramoResponseDTO> finalizarTramo(
                         @PathVariable Long idTramo,
                         @AuthenticationPrincipal Jwt jwt) {

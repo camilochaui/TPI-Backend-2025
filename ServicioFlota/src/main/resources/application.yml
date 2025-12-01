@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: servicio-flota
+  jackson:
+    default-property-inclusion: non_null
   cloud:
     config:
       enabled: false

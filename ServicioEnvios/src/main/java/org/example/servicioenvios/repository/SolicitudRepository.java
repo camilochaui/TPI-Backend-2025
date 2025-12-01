@@ -23,4 +23,10 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     @Query("SELECT s FROM Solicitud s LEFT JOIN FETCH s.ubicaciones u LEFT JOIN FETCH u.tipo WHERE s.numSolicitud = :id")
     Optional<Solicitud> findByIdWithUbicacionesAndTipos(@Param("id") Long id);
+
+    /**
+     * Cuenta cuántas solicitudes tienen un contenedor cuyo ID comienza con el prefijo dado
+     * Usado para generar IDs incrementales de contenedores
+     */
+    long countByIdContenedorExtStartingWith(String prefijo);
 }
