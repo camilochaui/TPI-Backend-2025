@@ -29,14 +29,15 @@ public interface ContenedorRepository extends JpaRepository<Contenedor, String> 
         @Query("SELECT c FROM Contenedor c " +
                         "LEFT JOIN c.deposito d " +
                         "WHERE (:depositoId IS NULL OR d.idDeposito = :depositoId) " +
-                        "AND (c.idContenedor NOT IN ( " +
-                        "  SELECT ce.contenedor.idContenedor " +
-                        "  FROM CambioEstado ce " +
-                        "  WHERE ce.estado.nombre = 'Entregado' AND ce.fechaFin IS NULL " +
-                        ") OR NOT EXISTS ( " +
-                        "  SELECT 1 FROM CambioEstado ce2 " +
-                        "  WHERE ce2.contenedor.idContenedor = c.idContenedor " +
-                        "))")
+                        // Debe existir un cambio de estado ACTUAL (fechaFin IS NULL) y ese estado
+                        // no debe ser 'Entregado'. De este modo excluimos también contenedores
+                        // que no tienen ningún cambio de estado (que se muestran como 'Sin Estado').
+                        "AND EXISTS ( " +
+                        "  SELECT ce FROM CambioEstado ce " +
+                        "  WHERE ce.contenedor.idContenedor = c.idContenedor " +
+                        "    AND ce.fechaFin IS NULL " +
+                        "    AND ce.estado.nombre <> 'Entregado' " +
+                        ")")
         List<Contenedor> findContenedoresPendientes(@Param("depositoId") Integer depositoId);
 
         // Buscar contenedores por camión (patente)

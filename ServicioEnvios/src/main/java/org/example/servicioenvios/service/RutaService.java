@@ -196,7 +196,12 @@ public class RutaService {
 
         tramosEntidades = tramoRepository.saveAll(tramosEntidades);
         log.info("Persistidos {} tramos para la ruta {}", tramosEntidades.size(), nuevaRuta.getIdRuta());
-
+        
+        // Asegurarse de que la entidad Ruta contenga la lista de tramos persistidos
+        // Esto permite que al mapear la solicitud a DTO se incluya la lista de tramos con sus ids
+        nuevaRuta.setTramos(tramosEntidades);
+        // Persistir nuevamente la ruta para sincronizar la relación (opcional si está en contexto)
+        rutaRepository.save(nuevaRuta);
         // 5. Asignar fechas estimadas a cada tramo
         LocalDateTime inicioBase = solicitud.getFechaCreacion() != null ? 
                 solicitud.getFechaCreacion() : LocalDateTime.now();
