@@ -17,4 +17,5 @@ public class TramoFinResponseDTO {
     private String estadoTramo;
     private LocalDateTime fechaHoraFinReal;
     private String patenteCamionExt;
+    private String estadoSolicitud;
 }

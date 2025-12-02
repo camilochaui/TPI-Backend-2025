@@ -16,6 +16,7 @@ import org.example.servicioenvios.entity.Tramo;
 import org.example.servicioenvios.entity.Ubicacion;
 import org.example.servicioenvios.feign.FlotaFeignClient;
 import org.example.servicioenvios.repository.SolicitudRepository;
+import org.example.servicioenvios.service.SolicitudService;
 import org.example.servicioenvios.repository.TramoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -38,18 +39,21 @@ public class TramoService {
 
     private final OsrmService osrmService;
     private final CalcularCostosService calcularCostosService;
+    private final SolicitudService solicitudService;
 
     @Autowired
     public TramoService(TramoRepository tramoRepository,
             SolicitudRepository solicitudRepository,
             FlotaFeignClient flotaFeignClient,
             OsrmService osrmService,
-            CalcularCostosService calcularCostosService) {
+            CalcularCostosService calcularCostosService,
+            SolicitudService solicitudService) {
         this.tramoRepository = tramoRepository;
         this.solicitudRepository = solicitudRepository;
         this.flotaFeignClient = flotaFeignClient;
         this.osrmService = osrmService;
         this.calcularCostosService = calcularCostosService;
+        this.solicitudService = solicitudService;
     }
 
     // Asignar camión a un tramo
@@ -263,30 +267,44 @@ public class TramoService {
         }
 
         // 7. Actualizar Estado de la Solicitud (si es el último tramo)
-
-        // Actualizar Estado de la Solicitud (si es el último tramo)
+        String estadoSolicitudResponse = null;
         try {
             Solicitud solicitud = tramo.getRuta().getSolicitud();
             List<Tramo> todosLosTramos = tramo.getRuta().getTramos();
 
             boolean todosFinalizados = todosLosTramos.stream()
-                    .allMatch(t -> t.getEstadoTramo() == EstadoTramo.FINALIZADO);
+                .allMatch(t -> t.getEstadoTramo() == EstadoTramo.FINALIZADO);
 
-            if (todosFinalizados) {
-                log.info("¡TODOS LOS TRAMOS FINALIZADOS! Actualizando Solicitud {} a ENTREGADA.",
-                        solicitud.getNumSolicitud());
-                solicitud.setEstadoSolicitud(EstadoSolicitud.ENTREGADA);
-                solicitudRepository.save(solicitud); // Guardar el estado de la solicitud
+            int maxOrden = todosLosTramos.stream()
+                .mapToInt(t -> t.getOrden() != null ? t.getOrden() : -1)
+                .max()
+                .orElse(-1);
+
+            boolean esUltimo = tramo.getOrden() != null && tramo.getOrden().intValue() == maxOrden;
+
+            if (esUltimo && todosFinalizados) {
+            try {
+                log.info("Último tramo finalizado y todos los tramos completos. Finalizando Solicitud {}.",
+                    solicitud.getNumSolicitud());
+                // Reutilizamos la lógica centralizada de finalización de solicitud
+                org.example.servicioenvios.dto.response.SolicitudResponseDTO resp =
+                    solicitudService.finalizarSolicitud(solicitud.getNumSolicitud());
+                estadoSolicitudResponse = resp != null ? resp.getEstadoSolicitud() : solicitud.getEstadoSolicitud().name();
+            } catch (Exception e) {
+                log.error("Error al finalizar la solicitud {} automáticamente: {}", solicitud.getNumSolicitud(), e.getMessage());
+                estadoSolicitudResponse = solicitud.getEstadoSolicitud() != null ? solicitud.getEstadoSolicitud().name() : null;
+            }
             } else {
-                long tramosFaltantes = todosLosTramos.stream()
-                        .filter(t -> t.getEstadoTramo() != EstadoTramo.FINALIZADO)
-                        .count();
-                log.info("Tramo finalizado. Aún quedan {} tramos pendientes para la Solicitud {}.", tramosFaltantes,
-                        solicitud.getNumSolicitud());
+            long tramosFaltantes = todosLosTramos.stream()
+                .filter(t -> t.getEstadoTramo() != EstadoTramo.FINALIZADO)
+                .count();
+            log.info("Tramo finalizado. Aún quedan {} tramos pendientes para la Solicitud {}.", tramosFaltantes,
+                solicitud.getNumSolicitud());
+            estadoSolicitudResponse = solicitud.getEstadoSolicitud() != null ? solicitud.getEstadoSolicitud().name() : null;
             }
         } catch (Exception e) {
             log.error("Error al verificar el estado de la solicitud después de finalizar el tramo {}: {}", idTramo,
-                    e.getMessage());
+                e.getMessage());
             // No detenemos la finalización del tramo, pero logueamos el error.
         }
 
@@ -298,6 +316,7 @@ public class TramoService {
             .estadoTramo(tramoActualizado.getEstadoTramo().name())
             .fechaHoraFinReal(tramoActualizado.getFechaHoraFinReal())
             .patenteCamionExt(tramoActualizado.getPatenteCamionExt())
+            .estadoSolicitud(estadoSolicitudResponse)
             .build();
     }
 
