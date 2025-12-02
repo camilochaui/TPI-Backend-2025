@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.example.servicioenvios.dto.response.TramoResponseDTO;
+import org.example.servicioenvios.dto.response.TramoInicioResponseDTO;
+import org.example.servicioenvios.dto.response.TramoFinResponseDTO;
 import org.example.servicioenvios.service.TramoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -54,29 +56,27 @@ public class TramoTransportistaController {
 
         @Operation(summary = "Iniciar un tramo propio", description = "El transportista autenticado inicia un tramo asignado a uno de sus camiones.")
         @PostMapping("/tramo/{idTramo}/inicio")
-        public ResponseEntity<TramoResponseDTO> iniciarTramo(
+        public ResponseEntity<TramoInicioResponseDTO> iniciarTramo(
                         @PathVariable Long idTramo,
                         @AuthenticationPrincipal Jwt jwt) {
 
                 Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
                 log.info("Transportista {} iniciando tramo {}", idTransportista, idTramo);
 
-                TramoResponseDTO tramoActualizado = tramoService.iniciarTramo(idTramo, idTransportista);
-
+                TramoInicioResponseDTO tramoActualizado = tramoService.iniciarTramo(idTramo, idTransportista);
                 return ResponseEntity.ok(tramoActualizado);
         }
 
         @Operation(summary = "Finalizar un tramo propio", description = "El transportista autenticado finaliza un tramo asignado a uno de sus camiones.")
         @PostMapping("/tramo/{idTramo}/fin")
-        public ResponseEntity<TramoResponseDTO> finalizarTramo(
+        public ResponseEntity<TramoFinResponseDTO> finalizarTramo(
                         @PathVariable Long idTramo,
                         @AuthenticationPrincipal Jwt jwt) {
 
                 Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
                 log.info("Transportista {} finalizando tramo {}", idTransportista, idTramo);
 
-                TramoResponseDTO tramoActualizado = tramoService.finalizarTramo(idTramo, idTransportista);
-
+                TramoFinResponseDTO tramoActualizado = tramoService.finalizarTramo(idTramo, idTransportista);
                 return ResponseEntity.ok(tramoActualizado);
         }
 

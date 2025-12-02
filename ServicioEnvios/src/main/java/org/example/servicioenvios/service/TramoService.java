@@ -8,6 +8,8 @@ import org.example.servicioenvios.dto.feign.TransportistaDTO;
 import org.example.servicioenvios.dto.request.AsignarCamionRequestDTO;
 import org.example.servicioenvios.dto.response.AsignacionCamionResponseDTO;
 import org.example.servicioenvios.dto.response.TramoResponseDTO;
+import org.example.servicioenvios.dto.response.TramoInicioResponseDTO;
+import org.example.servicioenvios.dto.response.TramoFinResponseDTO;
 import org.example.servicioenvios.dto.response.UbicacionResponseDTO;
 import org.example.servicioenvios.entity.Solicitud;
 import org.example.servicioenvios.entity.Tramo;
@@ -152,7 +154,7 @@ public class TramoService {
 
     // Iniciar un tramo
     @Transactional
-    public TramoResponseDTO iniciarTramo(Long idTramo, Integer transportistaId) {
+    public TramoInicioResponseDTO iniciarTramo(Long idTramo, Integer transportistaId) {
         log.info("Transportista {} iniciando tramo ID: {}", transportistaId, idTramo);
 
         // 1. Validar Seguridad (Versión Insegura )
@@ -191,12 +193,18 @@ public class TramoService {
 
         Tramo tramoActualizado = tramoRepository.save(tramo);
         log.info("Tramo {} INICIADO exitosamente.", idTramo);
-        return mapToTramoResponse(tramoActualizado);
+        return TramoInicioResponseDTO.builder()
+            .idTramo(tramoActualizado.getIdTramo())
+            .orden(tramoActualizado.getOrden())
+            .estadoTramo(tramoActualizado.getEstadoTramo().name())
+            .fechaHoraInicioReal(tramoActualizado.getFechaHoraInicioReal())
+            .patenteCamionExt(tramoActualizado.getPatenteCamionExt())
+            .build();
     }
 
     // Finalizar un tramo
     @Transactional
-    public TramoResponseDTO finalizarTramo(Long idTramo, Integer transportistaId) {
+    public TramoFinResponseDTO finalizarTramo(Long idTramo, Integer transportistaId) {
         log.info("Transportista {} finalizando tramo ID: {}", transportistaId, idTramo);
 
         // 1. Validar Seguridad (Versión Insegura)
@@ -284,7 +292,13 @@ public class TramoService {
 
         Tramo tramoActualizado = tramoRepository.save(tramo);
         log.info("Tramo {} FINALIZADO exitosamente.", idTramo);
-        return mapToTramoResponse(tramoActualizado);
+        return TramoFinResponseDTO.builder()
+            .idTramo(tramoActualizado.getIdTramo())
+            .orden(tramoActualizado.getOrden())
+            .estadoTramo(tramoActualizado.getEstadoTramo().name())
+            .fechaHoraFinReal(tramoActualizado.getFechaHoraFinReal())
+            .patenteCamionExt(tramoActualizado.getPatenteCamionExt())
+            .build();
     }
 
     // VALIDACIONES
