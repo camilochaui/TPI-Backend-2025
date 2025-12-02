@@ -172,6 +172,40 @@ public class TramoService {
                     "El tramo no está en estado ASIGNADO (actual: " + tramo.getEstadoTramo() + ")");
         }
 
+        // 2.b Validación de orden: no permitir iniciar un tramo si el tramo anterior
+        // de la misma solicitud no está finalizado.
+        Integer ordenActual = tramo.getOrden();
+        if (ordenActual != null && ordenActual > 1) {
+            try {
+                List<Tramo> otrosTramos = tramo.getRuta() != null ? tramo.getRuta().getTramos() : null;
+                if (otrosTramos != null) {
+                    int ordenPrev = ordenActual - 1;
+                    Tramo tramoPrev = otrosTramos.stream()
+                            .filter(t -> t.getOrden() != null && t.getOrden().intValue() == ordenPrev)
+                            .findFirst()
+                            .orElse(null);
+                    if (tramoPrev == null) {
+                        log.warn("No se encontró el tramo anterior (orden {}) para el tramo {}.", ordenPrev, idTramo);
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "No se encontró el tramo anterior (orden: " + ordenPrev + ")");
+                    }
+                    if (tramoPrev.getEstadoTramo() != EstadoTramo.FINALIZADO) {
+                        log.warn("Imposible iniciar tramo {}: el tramo anterior (orden {}) no está FINALIZADO (estado={}).",
+                                idTramo, ordenPrev, tramoPrev.getEstadoTramo());
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "No se puede iniciar este tramo hasta que el tramo anterior esté FINALIZADO");
+                    }
+                }
+            } catch (ResponseStatusException rse) {
+                throw rse; // repropagar conflict encontrado
+            } catch (Exception e) {
+                log.error("Error al validar orden de tramos para tramo {}: {}", idTramo, e.getMessage());
+                // Si hay un error inesperado, prevenimos iniciar para no romper la secuencia
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "No se puede validar el tramo anterior: " + e.getMessage());
+            }
+        }
+
         // 3. Orquestación: Marcar Transportista como OCUPADO
         try {
             log.info("Marcando transportista {} como OCUPADO en ServicioFlota...", transportistaId);
