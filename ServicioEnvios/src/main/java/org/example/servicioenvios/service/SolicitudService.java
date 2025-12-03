@@ -430,7 +430,7 @@ public class SolicitudService {
         private String calcularTiempoEstimado(Solicitud solicitud) {
                 // Estimación en base a distancia total y velocidad promedio
                 if (solicitud.getRuta() == null || solicitud.getRuta().getTramos() == null || solicitud.getRuta().getTramos().isEmpty()) {
-                        return "0 días";
+                        return "00:00:00";
                 }
 
                 // Configuración básica: velocidad promedio del camión (km/h) y tiempo fijo por depósito/entrega (horas)
@@ -452,13 +452,12 @@ public class SolicitudService {
                 // Tiempo de paradas en horas
                 double horasParadas = paradas * tiempoManejoPorParadaHoras;
 
-                double horasTotales = horasViaje + horasParadas;
-
-                long dias = (long) Math.floor(horasTotales / 24.0);
-                long horas = (long) Math.floor(horasTotales % 24.0);
-                long minutos = (long) Math.round((horasTotales * 60) % 60);
-
-                return String.format("%d días, %d horas, %d minutos", dias, horas, minutos);
+                long minutosTotales = Math.max(1, (long) Math.round((horasViaje + horasParadas) * 60));
+                java.time.Duration d = java.time.Duration.ofMinutes(minutosTotales);
+                long hh = d.toHours();
+                long mm = d.toMinutesPart();
+                long ss = d.toSecondsPart();
+                return String.format("%02d:%02d:%02d", hh, mm, ss);
         }
 
     private RutaResponseDTO mapRutaToDTO(Ruta ruta) {
@@ -574,13 +573,14 @@ public class SolicitudService {
                 .max(LocalDateTime::compareTo)
                 .orElse(null);
 
-        String tiempoReal = null;
-        if (inicioReal != null && finReal != null) {
-            long dias = java.time.Duration.between(inicioReal, finReal).toDays();
-            long horas = java.time.Duration.between(inicioReal, finReal).toHours() % 24;
-            long minutos = java.time.Duration.between(inicioReal, finReal).toMinutes() % 60;
-            tiempoReal = String.format("%d días, %d horas, %d minutos", dias, horas, minutos);
-        }
+                String tiempoReal = null;
+                if (inicioReal != null && finReal != null) {
+                        java.time.Duration d = java.time.Duration.between(inicioReal, finReal);
+                        long hh = d.toHours();
+                        long mm = d.toMinutesPart();
+                        long ss = d.toSecondsPart();
+                        tiempoReal = String.format("%02d:%02d:%02d", hh, mm, ss);
+                }
 
         // 6. Actualizar solicitud
         solicitud.setCostoReal(costoRealTotal);

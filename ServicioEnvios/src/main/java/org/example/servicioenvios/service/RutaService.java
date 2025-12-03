@@ -525,16 +525,28 @@ public class RutaService {
                                 .mapToDouble(t -> t.getDistanciaKmEstimada() != null ? t.getDistanciaKmEstimada() : 0.0)
                                 .sum();
 
+                // Si no hay distancia, devolvemos 00:00:00 como estimación mínima basada en cantidad de tramos
                 if (distanciaTotal <= 0.0) {
-                        int diasFallback = Math.max(1, tramos.size() * 2);
-                        return diasFallback + " días";
+                        long minutosFallback = Math.max(1, tramos.size()) * 60L; // 1h por tramo mínimo
+                        java.time.Duration d = java.time.Duration.ofMinutes(minutosFallback);
+                        long hh = d.toHours();
+                        long mm = d.toMinutesPart();
+                        long ss = d.toSecondsPart();
+                        return String.format("%02d:%02d:%02d", hh, mm, ss);
                 }
 
-                double horas = distanciaTotal / (velocidadPromedioKmh > 0 ? velocidadPromedioKmh : 60.0);
-                // Consideramos jornada de 8 horas por día
-                int diasEstimados = (int) Math.ceil(horas / 8.0);
-                if (diasEstimados < 1) diasEstimados = 1;
-                return diasEstimados + " días";
+                double velocidad = (velocidadPromedioKmh > 0 ? velocidadPromedioKmh : 60.0);
+                double horasViaje = distanciaTotal / velocidad;
+
+                // Tiempo adicional por manejo/carga en paradas: 2h por tramo
+                double horasParadas = (tramos != null ? tramos.size() : 0) * 2.0;
+
+                long minutosTotales = Math.max(1, (long) Math.round((horasViaje + horasParadas) * 60));
+                java.time.Duration d = java.time.Duration.ofMinutes(minutosTotales);
+                long hh = d.toHours();
+                long mm = d.toMinutesPart();
+                long ss = d.toSecondsPart();
+                return String.format("%02d:%02d:%02d", hh, mm, ss);
         }
 
     private Solicitud findSolicitud(Long numSolicitud) {

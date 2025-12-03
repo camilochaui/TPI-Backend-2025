@@ -11,6 +11,8 @@ public interface ClienteRepository extends JpaRepository<ClienteEntity, Long> {
 
     Optional<ClienteEntity> findByDni(Long dni);
 
+    Optional<ClienteEntity> findByMail(String mail);
+
     boolean existsByMail(String mail);
 
     boolean existsByDni(Long dni);

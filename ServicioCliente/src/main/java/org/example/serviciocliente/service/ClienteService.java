@@ -190,24 +190,34 @@ public class ClienteService {
     /**
      * Lógica ESPECIAL para ServicioEnvios:
      * - Si el cliente NO existe → Lo crea
-     * - Si el cliente YA existe → Lo retorna (NO error)
+     * - Si el cliente YA existe (por DNI o Email) → Lo retorna (NO error)
      */
     @Transactional
     public ClienteResponseDTO registrarOObtenerCliente(ClienteRequestDTO dto) {
-        log.info("Buscando cliente existente con DNI: {}", dto.getDni());
+        log.info("Buscando cliente existente con DNI: {} o Email: {}", dto.getDni(), dto.getMail());
 
-        // 1. Buscar si el cliente ya existe
-        Optional<ClienteEntity> clienteExistente = clienteRepository.findByDni(dto.getDni());
+        // 1. Buscar si el cliente ya existe por DNI
+        Optional<ClienteEntity> clientePorDni = clienteRepository.findByDni(dto.getDni());
 
-        if (clienteExistente.isPresent()) {
-            // ✅ CLIENTE EXISTE - Retornar sus datos (SIN error)
+        if (clientePorDni.isPresent()) {
+            // ✅ CLIENTE EXISTE POR DNI - Retornar sus datos (SIN error)
             log.info("Cliente con DNI {} ya existe. Retornando datos existentes.", dto.getDni());
-            return mapToResponseDTO(clienteExistente.get());
-        } else {
-            // ✅ CLIENTE NUEVO - Crearlo
-            log.info("Cliente con DNI {} no existe. Creando nuevo registro.", dto.getDni());
-            return registrarCliente(dto);
+            return mapToResponseDTO(clientePorDni.get());
         }
+
+        // 2. Si no existe por DNI, buscar por Email
+        Optional<ClienteEntity> clientePorEmail = clienteRepository.findByMail(dto.getMail());
+
+        if (clientePorEmail.isPresent()) {
+            // ✅ CLIENTE EXISTE POR EMAIL - Retornar sus datos (SIN error)
+            log.info("Cliente con email {} ya existe (DNI: {}). Retornando datos existentes.",
+                    dto.getMail(), clientePorEmail.get().getDni());
+            return mapToResponseDTO(clientePorEmail.get());
+        }
+
+        // 3. Si no existe por ninguno de los dos → Crear nuevo cliente
+        log.info("Cliente con DNI {} y email {} no existe. Creando nuevo registro.", dto.getDni(), dto.getMail());
+        return registrarCliente(dto);
     }
 
     // =====================================================
