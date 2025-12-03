@@ -130,26 +130,15 @@ public class TramoService {
         // 1. Obtener el ID del Transportista
         log.info("Buscando tramos para transportista ID: {}", transportistaId);
 
-        // 2. Orquestación: Llamar a ServicioFlota para obtener los camiones de este
-        // transportista
-        TransportistaDTO transportista;
-        try {
-            transportista = flotaFeignClient.obtenerTransportistaPorId(transportistaId);
-        } catch (Exception e) {
-            log.error("Error al contactar ServicioFlota para obtener transportista {}: {}", transportistaId,
-                    e.getMessage());
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ServicioFlota no disponible");
+        if (transportistaId == null) {
+            log.warn("ID de transportista es nulo al intentar obtener tramos");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta id de transportista en el token JWT");
         }
 
-        List<String> misPatentes = transportista.getCamionesPatentes();
-        if (misPatentes == null || misPatentes.isEmpty()) {
-            log.info("Transportista {} no tiene camiones asignados.", transportistaId);
-            return List.of();
-        }
-
-        // 3. Encontrar tramos (ASIGNADOS o INICIADOS) para esas patentes
-        log.info("Buscando tramos para patentes: {}", misPatentes);
-        List<Tramo> tramos = tramoRepository.findTramosByTransportista(misPatentes);
+        // 2. Consultar directamente la DB: buscar tramos cuyo camión pertenece al transportista
+        // (evita depender de Feign y posibles inconsistencias entre servicios)
+        log.info("Buscando tramos por camion.id_transportista_fk = {}", transportistaId);
+        List<Tramo> tramos = tramoRepository.findTramosByTransportistaId(transportistaId);
 
         return tramos.stream()
                 .map(this::mapToTramoResponse)

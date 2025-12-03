@@ -46,6 +46,13 @@ public class TramoTransportistaController {
         @GetMapping("/mis_tramos")
         public ResponseEntity<List<TramoResponseDTO>> obtenerTramosPorTransportista(
                         @AuthenticationPrincipal Jwt jwt) {
+                // Debug: loguear claims del JWT para verificar qué llega en el token
+                if (jwt != null) {
+                        log.info("Claims del JWT: {}", jwt.getClaims());
+                } else {
+                        log.warn("JWT de autenticación es nulo al consultar mis_tramos");
+                }
+
                 // Extraer el ID del transportista desde el claim del JWT para evitar IDOR
                 Integer idTransportista = extractIdFromJwt(jwt, "id_transportista");
                 log.info("Transportista autenticado (claim) consultando sus tramos: {}", idTransportista);
@@ -84,7 +91,29 @@ public class TramoTransportistaController {
         private Integer extractIdFromJwt(Jwt jwt, String claimName) {
                 if (jwt == null)
                         return null;
+                // Intentar extraer el claim solicitado
                 Object claim = jwt.getClaim(claimName);
+                // Si no está con el nombre en snake_case, intentar camelCase (id_transportista -> idTransportista)
+                if (claim == null && claimName.contains("_")) {
+                        String[] parts = claimName.split("_");
+                        StringBuilder sb = new StringBuilder(parts[0]);
+                        for (int i = 1; i < parts.length; i++) {
+                                if (parts[i].length() > 0) {
+                                        sb.append(Character.toUpperCase(parts[i].charAt(0))).append(parts[i].substring(1));
+                                }
+                        }
+                        String camel = sb.toString();
+                        log.debug("Claim '{}' no encontrado; probando '{}' en el JWT", claimName, camel);
+                        claim = jwt.getClaim(camel);
+                }
+                // Intentar variantes comunes si sigue sin encontrarse
+                if (claim == null) {
+                        log.debug("Claim '{}' no encontrado; probando 'id' y 'sub' como alternativas", claimName);
+                        claim = jwt.getClaim("id");
+                }
+                if (claim == null) {
+                        claim = jwt.getClaim("sub");
+                }
                 if (claim instanceof Number) {
                         return ((Number) claim).intValue();
                 }
